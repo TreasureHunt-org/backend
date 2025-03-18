@@ -9,12 +9,20 @@ import org.springframework.transaction.annotation.Transactional;
 import org.treasurehunt.auth.ChangePasswordRequest;
 import org.treasurehunt.auth.CreateUserRequest;
 import org.treasurehunt.auth.UserAuthResponse;
+import org.treasurehunt.common.api.PageDTO;
+import org.treasurehunt.common.api.PageResponse;
 import org.treasurehunt.common.enums.Roles;
 import org.treasurehunt.exception.EntityAlreadyExistsException;
 import org.treasurehunt.exception.EntityNotFoundException;
 import org.treasurehunt.exception.IncorrectPasswordException;
 import org.treasurehunt.exception.RefreshTokenException;
 import org.treasurehunt.security.jwt.JwtService;
+import org.treasurehunt.user.repository.UserCriteriaRepository;
+import org.treasurehunt.user.repository.UserSearchCriteria;
+import org.treasurehunt.user.repository.entity.Role;
+import org.treasurehunt.user.repository.entity.RoleId;
+import org.treasurehunt.user.repository.entity.User;
+import org.treasurehunt.user.repository.UserRepository;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -29,9 +37,15 @@ public class UserService {
     private final UserMapper userMapper;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final UserCriteriaRepository userCriteriaRepository;
 
     @Value("${app.security.jwt.refresh-expiration}")
     private Long refreshTokenExpiration;
+
+    public PageResponse<User> searchUsers(PageDTO pageDTO,
+                                          UserSearchCriteria searchCriteria) {
+        return PageResponse.fromPage(userCriteriaRepository.findAllWithFilters(pageDTO, searchCriteria));
+    }
 
     @Transactional
     public User updateRefreshToken(String email, String refreshToken) {
@@ -46,7 +60,7 @@ public class UserService {
 
     @Transactional
     public UserAuthResponse createUser(CreateUserRequest request) {
-        if (userRepository.findByEmailIgnoreCase(request.email()).isPresent()) {
+        if (userRepository.findByEmailOrUsernameIgnoreCase(request.email(), request.username()).isPresent()) {
             throw new EntityAlreadyExistsException("email", request.email(), User.class);
         }
         User user = userRepository.save(userMapper.toUser(request));

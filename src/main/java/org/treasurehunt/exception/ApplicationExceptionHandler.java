@@ -119,15 +119,17 @@ public class ApplicationExceptionHandler {
                 .body(
                         ApiResponse.error("Validation errors occurred",
                                 errors,
-                                BAD_REQUEST.value()));
+                                BAD_REQUEST.value()
+                        )
+                );
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<String>> handleConstraintViolation(ConstraintViolationException ex) {
+        log.error("ConstraintViolationException: {}", ex.getMessage(), ex);
         List<String> errors = ex.getConstraintViolations().stream()
                 .map(ConstraintViolation::getMessage)
                 .collect(Collectors.toList());
-        log.error("ConstraintViolationException: {}", ex.getMessage(), ex);
 
         return ResponseEntity.status(BAD_REQUEST)
                 .body(ApiResponse.error("Validation failed", errors, BAD_REQUEST.value()));

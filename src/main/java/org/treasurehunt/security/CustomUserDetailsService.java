@@ -6,9 +6,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import org.treasurehunt.user.Role;
-import org.treasurehunt.user.User;
-import org.treasurehunt.user.UserRepository;
+import org.treasurehunt.user.repository.entity.Role;
+import org.treasurehunt.user.repository.entity.User;
+import org.treasurehunt.user.repository.UserRepository;
 
 import java.util.Collection;
 import java.util.Set;

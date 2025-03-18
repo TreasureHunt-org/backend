@@ -1,4 +1,4 @@
-package org.treasurehunt.user;
+package org.treasurehunt.user.repository.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -10,6 +10,7 @@ import org.treasurehunt.repository.entity.Hunt;
 
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Getter
@@ -69,5 +70,8 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hunt_id")
     private Hunt hunt;
+
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "reviewer")
+    private List<Hunt> huntsToReview;
 
 }

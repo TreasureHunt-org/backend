@@ -7,16 +7,17 @@ import jakarta.validation.constraints.Size;
 
 public record CreateUserRequest(
         @JsonProperty
-        @NotBlank
+        @NotBlank(message = "Username is required.")
         String username,
 
         @JsonProperty
-        @NotBlank
-        @Email
+        @NotBlank(message = "Email is required.")
+        @Email(message = "Please provide a valid email address.")
         String email,
 
         @JsonProperty
-        @NotBlank
-        @Size(min = 8, max = 25, message = "Password minimum length is 8")
-        String password) {
+        @NotBlank(message = "Password is required.")
+        @Size(min = 8, max = 25, message = "Password must be between 8 and 25 characters.")
+        String password
+) {
 }

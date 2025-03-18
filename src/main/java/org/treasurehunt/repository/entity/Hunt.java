@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.treasurehunt.common.enums.HuntStatus;
-import org.treasurehunt.user.User;
+import org.treasurehunt.user.repository.entity.User;
 
 import java.time.Instant;
 import java.util.List;
@@ -34,17 +34,12 @@ public class Hunt {
     @JoinColumn(name = "organizer_id", nullable = false)
     private User organizer;
 
-    @OneToMany(
-            mappedBy = "hunt",
-            fetch = FetchType.LAZY
-    )
+    @OneToMany(mappedBy = "hunt", fetch = FetchType.LAZY)
     private List<User> participants;
 
-    @ManyToMany(
-            fetch = FetchType.LAZY,
-            mappedBy = "huntsToReview"
-    )
-    private List<Reviewer> reviewers;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewer_id")
+    private User reviewer;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "winner_id")

@@ -1,4 +1,4 @@
-package org.treasurehunt.user;
+package org.treasurehunt.user.repository.entity;
 
 
 import jakarta.persistence.*;

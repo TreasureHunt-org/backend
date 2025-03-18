@@ -63,7 +63,7 @@ public class SecurityConfig {
         final var authWhitelist = new String[]{
                 "/api-docs/**", "/auth/refresh-token",
                 "/auth/signin", "/auth/signup", "/swagger-ui/**",
-                "/doc/**", "/index.html", "/error/**"};
+                "/doc/**", "/index.html", "/error/**", "/users/**"};
 
 
         http.

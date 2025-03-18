@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.treasurehunt.auth.CreateUserRequest;
 import org.treasurehunt.auth.UserAuthResponse;
+import org.treasurehunt.user.repository.entity.Role;
+import org.treasurehunt.user.repository.entity.User;
 
 import java.util.Set;
 

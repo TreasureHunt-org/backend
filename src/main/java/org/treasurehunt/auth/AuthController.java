@@ -22,7 +22,7 @@ import org.treasurehunt.common.api.ApiResponse;
 import org.treasurehunt.exception.AuthenticationFailedException;
 import org.treasurehunt.security.UserDetailsDTO;
 import org.treasurehunt.security.jwt.JwtService;
-import org.treasurehunt.user.User;
+import org.treasurehunt.user.repository.entity.User;
 import org.treasurehunt.user.UserService;
 
 import java.util.List;
@@ -56,7 +56,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserAuthResponse>> authenticateUser(@RequestBody @Valid AuthRequest authRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(authRequest.username(), authRequest.password())
+                    new UsernamePasswordAuthenticationToken(authRequest.email(), authRequest.password())
             );
 
             String accessToken = jwtService.createJwtAccessToken(authentication.getName());

@@ -5,13 +5,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record ChangePasswordRequest(
-        @JsonProperty("old-password")
-        @NotBlank
+        @JsonProperty
+        @NotBlank(message = "Old password is required.")
         String oldPassword,
 
-        @JsonProperty("new-password")
-        @NotBlank
-        @Size(min = 8, max = 25, message = "Password minimum length is 8")
+        @JsonProperty
+        @NotBlank(message = "New password is required.")
+        @Size(min = 8, max = 25, message = "New password must be between 8 and 25 characters.")
         String newPassword
 ) {
 }
