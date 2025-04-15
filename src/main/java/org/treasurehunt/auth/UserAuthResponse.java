@@ -11,6 +11,8 @@ public record UserAuthResponse(
         @JsonProperty String username,
         @JsonProperty String email,
         @JsonProperty String[] roles,
-        @JsonProperty String refreshToken
+        @JsonProperty String refreshToken,
+        @JsonProperty String accessToken
+
 ) {
 }

@@ -14,5 +14,5 @@ public class PageDTO {
     private int page = 0;
     private int pageSize = 10;
     private Sort.Direction sortDirection = Sort.Direction.ASC;
-    private String sortBy;
+    private String sortBy = "id";
 }

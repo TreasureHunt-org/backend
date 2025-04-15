@@ -53,7 +53,7 @@ import java.util.List;
  */
 @Getter
 @Builder
-public class ApiResponse<T> {
+public class ApiResp<T> {
     private final boolean success;
     private final String message;
     private final List<T> data;
@@ -62,8 +62,8 @@ public class ApiResponse<T> {
     private final int errorCode;
     private final long timestamp;
 
-    public static <T> ApiResponse<T> success(List<T> data, String message) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResp<T> success(List<T> data, String message) {
+        return ApiResp.<T>builder()
                 .success(true)
                 .message(message)
                 .data(data)
@@ -71,11 +71,22 @@ public class ApiResponse<T> {
                 .build();
     }
 
-    public static <T> ApiResponse<T> error(String message, List<String> errors, int errorCode) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResp<T> error(String message, List<String> errors, int errorCode) {
+        return ApiResp.<T>builder()
                 .success(false)
+                .data(null)
                 .message(message)
                 .errors(errors)
+                .errorCode(errorCode)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+    public static <T> ApiResp<T> error(String message, String error, int errorCode) {
+        return ApiResp.<T>builder()
+                .success(false)
+                .data(null)
+                .message(message)
+                .error(error)
                 .errorCode(errorCode)
                 .timestamp(System.currentTimeMillis())
                 .build();

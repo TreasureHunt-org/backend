@@ -1,10 +1,12 @@
-package org.treasurehunt.repository.entity;
+package org.treasurehunt.hunt.repository.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
+@ToString
 @Getter
 @Setter
 @Entity

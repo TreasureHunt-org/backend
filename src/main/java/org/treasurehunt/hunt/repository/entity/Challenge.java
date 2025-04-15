@@ -1,22 +1,22 @@
-package org.treasurehunt.repository.entity;
+package org.treasurehunt.hunt.repository.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.ColumnDefault;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.treasurehunt.common.enums.ChallengeType;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "challenge")
+@Builder
+@Table(name = "challenge" )
+@NoArgsConstructor
+@AllArgsConstructor
 public class Challenge {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,13 +37,13 @@ public class Challenge {
     private Integer points;
 
     @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "challenge_type_id", nullable = false)
-    private ChallengeType challengeType;
+    @Column(name = "challenge_type", nullable = false)
+    ChallengeType challengeType;
 
     @OneToMany(
             mappedBy = "challenge",
             fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL,
             orphanRemoval = true
     )
     private List<ChallengeCode> challengeCodes;
@@ -57,19 +57,24 @@ public class Challenge {
     private String externalGameUri;
 
     @Lob
-    @Column(name = "description")
+    @NotNull
+    @Column(name = "description" )
     private String description;
 
-    @Column(name = "test_cases")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, Object> testCases;
+    @OneToMany(
+            mappedBy = "challenge",
+            fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    List<TestCase> testCases;
 
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
+    @ColumnDefault("CURRENT_TIMESTAMP" )
+    @Column(name = "created_at" )
     private Instant createdAt;
 
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
+    @ColumnDefault("CURRENT_TIMESTAMP" )
+    @Column(name = "updated_at" )
     private Instant updatedAt;
 
 }

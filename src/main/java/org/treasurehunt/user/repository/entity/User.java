@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
-import org.treasurehunt.repository.entity.Hunt;
+import org.treasurehunt.hunt.repository.entity.Hunt;
 
 import java.time.Instant;
 import java.util.HashSet;

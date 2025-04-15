@@ -1,10 +1,9 @@
-package org.treasurehunt.repository.entity;
+package org.treasurehunt.hunt.repository.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.treasurehunt.common.enums.HuntStatus;
 import org.treasurehunt.user.repository.entity.User;
 
@@ -14,9 +13,13 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "hunt")
 public class Hunt {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "hunt_id", nullable = false)
     private Long id;
 
@@ -60,6 +63,10 @@ public class Hunt {
     @Column(name = "hunt_img_uri", length = 2083)
     private String huntImgUri;
 
+    @Size(max = 2083)
+    @Column(name = "map_img_uri", length = 2083)
+    private String mapImgUri;
+
     @NotNull
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "location_id", nullable = false)
@@ -67,7 +74,7 @@ public class Hunt {
 
     @OneToMany(
             mappedBy = "hunt",
-            fetch = FetchType.EAGER,
+            fetch = FetchType.LAZY,
             orphanRemoval = true
     )
     private List<Challenge> challenges;

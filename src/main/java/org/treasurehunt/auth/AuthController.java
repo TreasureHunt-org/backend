@@ -3,9 +3,9 @@ package org.treasurehunt.auth;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -13,23 +13,20 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import org.treasurehunt.common.api.ApiResponse;
+import org.treasurehunt.common.api.ApiResp;
 import org.treasurehunt.exception.AuthenticationFailedException;
 import org.treasurehunt.security.UserDetailsDTO;
 import org.treasurehunt.security.jwt.JwtService;
+import org.treasurehunt.user.mapper.UserMapper;
 import org.treasurehunt.user.repository.entity.User;
-import org.treasurehunt.user.UserService;
+import org.treasurehunt.user.service.UserService;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.springframework.http.HttpStatus.CREATED;
-import static org.treasurehunt.common.constants.AuthConstants.BEARER_PREFIX;
 import static org.treasurehunt.common.constants.PathConstants.*;
 
 /**
@@ -48,12 +45,14 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserService userService;
+    private final UserMapper userMapper;
 
-    @Operation(description = """
+    @Operation(summary = "Authenticate/Login a user",
+            description = """
             Authenticate a user before accessing any protected resource
             returns a valid access token if it succeeded""")
     @PostMapping(AUTH_SIGNIN)
-    public ResponseEntity<ApiResponse<UserAuthResponse>> authenticateUser(@RequestBody @Valid AuthRequest authRequest) {
+    public ResponseEntity<ApiResp<UserAuthResponse>> authenticateUser(@RequestBody @Valid AuthRequest authRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(authRequest.email(), authRequest.password())
@@ -71,12 +70,13 @@ public class AuthController {
                     user.getRoles().stream()
                             .map(role -> role.getId().getRoleName())
                             .toArray(String[]::new),
-                    refreshToken
+                    refreshToken,
+                    accessToken
             );
 
             return ResponseEntity.ok()
-                    .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + accessToken)
-                    .body(ApiResponse
+//                    .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + accessToken)
+                    .body(ApiResp
                             .success(List.of(userResponse),
                                     "Authentication successful"));
         } catch (BadCredentialsException ex) {
@@ -94,11 +94,11 @@ public class AuthController {
                     """
     )
     @PostMapping(AUTH_SIGNUP)
-    public ResponseEntity<ApiResponse<UserAuthResponse>> registerUser(@RequestBody @Valid CreateUserRequest request) {
+    public ResponseEntity<ApiResp<UserAuthResponse>> registerUser(@RequestBody @Valid CreateUserRequest request) {
         UserAuthResponse userAuthResponse = userService.createUser(request);
 
         return ResponseEntity.status(CREATED)
-                .body(ApiResponse.
+                .body(ApiResp.
                         success(List.of(userAuthResponse),
                                 "User registered successfully"));
     }
@@ -108,7 +108,7 @@ public class AuthController {
             to be able to continue be authenticated and use the system.
             """)
     @PostMapping(AUTH_REFRESH_TOKEN)
-    public ResponseEntity<ApiResponse<RefreshTokenResponse>> refreshToken(@RequestBody @Valid RefreshTokenRequest request) {
+    public ResponseEntity<ApiResp<RefreshTokenResponse>> refreshToken(@RequestBody @Valid RefreshTokenRequest request) {
         String requestRefreshToken = request.refreshToken();
 
         User user = userService.validateRefreshToken(requestRefreshToken);
@@ -116,9 +116,9 @@ public class AuthController {
         String newAccessToken = jwtService.createJwtAccessToken(user.getEmail());
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + newAccessToken)
-                .body(ApiResponse.success(
-                        List.of(new RefreshTokenResponse(requestRefreshToken)),
+//                .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + newAccessToken)
+                .body(ApiResp.success(
+                        List.of(new RefreshTokenResponse(requestRefreshToken, newAccessToken)),
                         "Refresh token successfully validated."
                 ));
     }
@@ -129,17 +129,17 @@ public class AuthController {
             """,
             security = {@SecurityRequirement(name = "bearer-key")})
     @PostMapping(AUTH_SIGNOUT)
-    public ResponseEntity<ApiResponse<LogoutResponse>> logoutUser() {
+    public ResponseEntity<ApiResp<LogoutResponse>> logoutUser() {
         return getUserFromSecurityContext()
                 .map(user -> {
                     userService.invalidateRefreshTokenByEmail(user.getUsername());
                     SecurityContextHolder.getContext().setAuthentication(null);
 
-                    ApiResponse<LogoutResponse> apiResponse = ApiResponse.success(
+                    ApiResp<LogoutResponse> apiResp = ApiResp.success(
                             List.of(),
                             "You have been successfully logged out."
                     );
-                    return ResponseEntity.ok(apiResponse);
+                    return ResponseEntity.ok(apiResp);
                 })
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated. Please sign in."));
     }
@@ -150,7 +150,7 @@ public class AuthController {
             """,
             security = {@SecurityRequirement(name = "bearer-key")})
     @PostMapping(AUTH_CHANGE_PASSWORD)
-    public ResponseEntity<ApiResponse<String>> changePassword(
+    public ResponseEntity<ApiResp<String>> changePassword(
             @RequestBody @Valid ChangePasswordRequest changePasswordRequest) {
         Optional<UserDetailsDTO> userDetails = getUserFromSecurityContext();
         if (userDetails.isEmpty())
@@ -160,9 +160,22 @@ public class AuthController {
         SecurityContextHolder.getContext().setAuthentication(null);
 
         return ResponseEntity.ok(
-                ApiResponse.success(
+                ApiResp.success(
                         List.of(),
                         "Password Changed Successfully, Login again"
+                ));
+    }
+
+    @GetMapping(AUTH_ME)
+    public ResponseEntity<ApiResp<UserAuthResponse>> getCurrentAuthenticatedUser() {
+        var userDetails = getUserFromSecurityContext()
+                .orElseThrow(() -> new EntityNotFoundException("No authenticated user found"));
+        User user = userService.getUser(userDetails.getId());
+
+        return ResponseEntity.ok(
+                ApiResp.success(
+                        List.of(userMapper.toUserAuthResponse(user)),
+                        "Retrieved user successfully"
                 ));
     }
 

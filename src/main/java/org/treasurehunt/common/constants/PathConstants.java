@@ -16,7 +16,14 @@ public final class PathConstants {
     public static final String AUTH_SIGNOUT = "signout";
     public static final String AUTH_REFRESH_TOKEN = "refresh-token";
     public static final String AUTH_CHANGE_PASSWORD = "change-password";
+    public static final String AUTH_ME = "me";
+
 
     public static final String USER_BASE = "users";
+    public static final String USER_IMAGE = "{id}/image";
+
+
+    public static final String HUNT_BASE = "hunts";
+    public static final String HUNT_ID_CHALLENGE = "{id}/challenges";
 
 }

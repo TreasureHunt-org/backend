@@ -1,5 +1,8 @@
 HELP.md
 target/
+user-photos/
+hunt-bg-photos/
+hunt-map-photos/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

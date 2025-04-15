@@ -12,7 +12,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.treasurehunt.common.api.ApiResponse;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.treasurehunt.common.api.ApiResp;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,65 +28,65 @@ public class ApplicationExceptionHandler {
     private final HttpServletRequest request;
 
     @ExceptionHandler(EntityAlreadyExistsException.class)
-    public ResponseEntity<ApiResponse<String>> handleEntityAlreadyExistsException(
+    public ResponseEntity<ApiResp<String>> handleEntityAlreadyExistsException(
             EntityAlreadyExistsException ex) {
         log.error("Entity already exists exception {} {} \n", request.getRequestURI(), ex);
 
         return ResponseEntity.status(CONFLICT)
                 .body(
-                        ApiResponse.error("Entity already exists",
+                        ApiResp.error("Entity already exists",
                                 List.of(ex.getMessage()),
                                 CONFLICT.value())
                 );
     }
 
     @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<ApiResponse<String>> handleResourceNotFoundException(
+    public ResponseEntity<ApiResp<String>> handleResourceNotFoundException(
             RuntimeException ex) {
         log.error("Resource not found {} \n", request.getRequestURI(), ex);
 
         return ResponseEntity.status(NOT_FOUND)
                 .body(
-                        ApiResponse.error("Entity not found",
+                        ApiResp.error("Entity not found",
                                 List.of(ex.getMessage()),
                                 NOT_FOUND.value()));
     }
 
     @ExceptionHandler(AuthenticationFailedException.class)
-    public ResponseEntity<ApiResponse<String>> handleAuthenticationException(
+    public ResponseEntity<ApiResp<String>> handleAuthenticationException(
             AuthenticationFailedException ex) {
         log.error("Authentication failed: {} \n", request.getRequestURI(), ex);
 
         return ResponseEntity
                 .status(UNAUTHORIZED)
                 .body(
-                        ApiResponse.error("Authentication failed",
+                        ApiResp.error("Authentication failed",
                                 List.of(ex.getMessage()),
                                 UNAUTHORIZED.value()));
     }
 
     @ExceptionHandler(RefreshTokenException.class)
-    public ResponseEntity<ApiResponse<String>> handleRefreshTokenException(
+    public ResponseEntity<ApiResp<String>> handleRefreshTokenException(
             RefreshTokenException ex) {
         log.error("Refresh Token exception: {} \n", request.getRequestURI(), ex);
 
         return ResponseEntity
                 .status(UNAUTHORIZED)
                 .body(
-                        ApiResponse.error("Invalid Refresh Token",
+                        ApiResp.error("Invalid Refresh Token",
                                 List.of(ex.getMessage()),
                                 UNAUTHORIZED.value()));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<String>> handleAccessDeniedException(
+    public ResponseEntity<ApiResp<String>> handleAccessDeniedException(
             AccessDeniedException ex) {
         log.error("Access denied error: {} \n", request.getRequestURI(), ex);
 
         return ResponseEntity
                 .status(FORBIDDEN)
                 .body(
-                        ApiResponse.error("Access denied.",
+                        ApiResp.error("Access denied.",
                                 List.of(ex.getMessage()),
                                 FORBIDDEN.value()));
     }
@@ -105,7 +106,7 @@ public class ApplicationExceptionHandler {
 //    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<String>> handleMethodArgumentNotValidException(
+    public ResponseEntity<ApiResp<String>> handleMethodArgumentNotValidException(
             MethodArgumentNotValidException ex) {
         log.error("Method Argument Not Valid Exception: {} \n", request.getRequestURI(), ex);
 
@@ -117,7 +118,7 @@ public class ApplicationExceptionHandler {
         return ResponseEntity
                 .status(BAD_REQUEST)
                 .body(
-                        ApiResponse.error("Validation errors occurred",
+                        ApiResp.error("Validation errors occurred",
                                 errors,
                                 BAD_REQUEST.value()
                         )
@@ -125,26 +126,31 @@ public class ApplicationExceptionHandler {
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponse<String>> handleConstraintViolation(ConstraintViolationException ex) {
+    public ResponseEntity<ApiResp<String>> handleConstraintViolation(ConstraintViolationException ex) {
         log.error("ConstraintViolationException: {}", ex.getMessage(), ex);
         List<String> errors = ex.getConstraintViolations().stream()
                 .map(ConstraintViolation::getMessage)
                 .collect(Collectors.toList());
 
         return ResponseEntity.status(BAD_REQUEST)
-                .body(ApiResponse.error("Validation failed", errors, BAD_REQUEST.value()));
+                .body(ApiResp.error("Validation failed", errors, BAD_REQUEST.value()));
     }
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiResp<String>> handleBadRequest(BadRequestException ex) {
+        return ResponseEntity.status(BAD_REQUEST)
+                .body(ApiResp.error("Bad Request", ex.getMessage(), BAD_REQUEST.value()));
+    }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<String>> handleGeneralException(
+    public ResponseEntity<ApiResp<String>> handleGeneralException(
             Exception ex) {
         log.error("Unexpected error: {} \n", request.getRequestURI(), ex);
 
         return ResponseEntity
                 .status(INTERNAL_SERVER_ERROR)
                 .body(
-                        ApiResponse.error("An unexpected error occurred",
+                        ApiResp.error("An unexpected error occurred",
                                 List.of(ex.getMessage()),
                                 INTERNAL_SERVER_ERROR.value()));
     }
