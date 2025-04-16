@@ -14,6 +14,7 @@ import org.treasurehunt.common.api.ApiResp;
 import org.treasurehunt.exception.AuthenticationFailedException;
 import org.treasurehunt.exception.BadRequestException;
 import org.treasurehunt.hunt.mapper.HuntMapper;
+import org.treasurehunt.hunt.repository.entity.Challenge;
 import org.treasurehunt.hunt.service.ChallengeService;
 import org.treasurehunt.hunt.service.HuntService;
 import org.treasurehunt.hunt.repository.entity.Hunt;
@@ -92,7 +93,8 @@ public class HuntController {
         UserDetailsDTO user = getUserFromSecurityContext()
                 .orElseThrow(() -> new AuthenticationFailedException("Authentication failed" ));
 
-        challengeService.createChallenge(id, user.getId(), createChallengeDTO);
+        Challenge challenge = challengeService.createChallenge(id, user.getId(), createChallengeDTO);
+
 
         return ResponseEntity.ok("Challenge added" );
     }

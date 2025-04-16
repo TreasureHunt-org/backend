@@ -28,7 +28,7 @@ public class ChallengeService {
     private final ChallengeMapper challengeMapper;
 
 
-    public void createChallenge(Long huntId, Long organizerId, CreateChallengeDTO createChallengeDTO) {
+    public Challenge createChallenge(Long huntId, Long organizerId, CreateChallengeDTO createChallengeDTO) {
         // Step 1: Get the hunt by ID first
         Hunt huntById = huntRepository.findById(huntId)
                 .orElseThrow(() -> new EntityNotFoundException(huntId, Hunt.class));
@@ -56,7 +56,7 @@ public class ChallengeService {
 
         // Step 5: Handle TestCases if provided and the challenge type is not 'GAME'
         if (createChallengeDTO.getTestCases() != null && !createChallengeDTO.getTestCases().isEmpty()
-            && createChallengeDTO.getChallengeType() != ChallengeType.GAME) {
+                && createChallengeDTO.getChallengeType() != ChallengeType.GAME) {
             List<TestCase> testCases = createChallengeDTO.getTestCases().stream()
                     .map(dto -> {
                         TestCase testCase = new TestCase();
@@ -71,7 +71,7 @@ public class ChallengeService {
         }
 
         // Step 6: Save the challenge to the database
-        Challenge finalSavedChallenge = challengeRepository.save(challengeToCreate);
+        return challengeRepository.save(challengeToCreate);
     }
 
 
