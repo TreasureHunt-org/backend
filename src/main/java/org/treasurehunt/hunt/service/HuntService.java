@@ -3,6 +3,8 @@ package org.treasurehunt.hunt.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,7 +14,9 @@ import org.treasurehunt.common.validation.ValidatorService;
 import org.treasurehunt.exception.BadRequestException;
 import org.treasurehunt.hunt.api.CreateHuntRequest;
 import org.treasurehunt.hunt.api.DraftHuntDTO;
+import org.treasurehunt.hunt.api.HuntFilter;
 import org.treasurehunt.hunt.repository.HuntRepository;
+import org.treasurehunt.hunt.repository.HuntSpecification;
 import org.treasurehunt.hunt.repository.LocationRepository;
 import org.treasurehunt.hunt.repository.entity.Hunt;
 import org.treasurehunt.hunt.repository.entity.Location;
@@ -42,7 +46,7 @@ public class HuntService {
             MultipartFile mapImage,
             Long organizerId) throws IOException {
         try {
-            // Convert JSON string to Java object
+            // Convert a JSON string to a Java object
             CreateHuntRequest createHuntRequest = objectMapper.readValue(rawCreateHuntRequest, CreateHuntRequest.class);
             // validate request
             validatorService.validate(createHuntRequest);
@@ -86,7 +90,20 @@ public class HuntService {
     }
 
     public List<Hunt> getAllDrafted() {
-
         return huntRepository.findAll();
+    }
+
+    /**
+     * Get all hunts with filtering and pagination
+     * 
+     * @param pageable pagination information
+     * @param filter filtering criteria
+     * @return page of hunts matching the criteria
+     */
+    public Page<Hunt> getAllHunts(Pageable pageable, HuntFilter filter) {
+        if (filter == null) {
+            filter = new HuntFilter();
+        }
+        return huntRepository.findAll(HuntSpecification.getSpecification(filter), pageable);
     }
 }

@@ -13,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.treasurehunt.common.api.ApiResp;
 
 import java.util.List;
@@ -140,6 +141,17 @@ public class ApplicationExceptionHandler {
     public ResponseEntity<ApiResp<String>> handleBadRequest(BadRequestException ex) {
         return ResponseEntity.status(BAD_REQUEST)
                 .body(ApiResp.error("Bad Request", ex.getMessage(), BAD_REQUEST.value()));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiResp<String>> handleMissingServletRequestPartException(
+            MissingServletRequestPartException ex) {
+        log.error("Missing required request part: {} \n", request.getRequestURI(), ex);
+
+        return ResponseEntity.status(BAD_REQUEST)
+                .body(ApiResp.error("Missing required request part",
+                        List.of(ex.getMessage()),
+                        BAD_REQUEST.value()));
     }
 
     @ExceptionHandler(Exception.class)

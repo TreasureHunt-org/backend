@@ -1,5 +1,6 @@
 package org.treasurehunt.common.api;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Singular;
@@ -51,6 +52,12 @@ import java.util.List;
  * @author Rashed Al Maaitah
  * @version 1.0
  */
+@Schema(
+        oneOf = {
+                ApiResp.SuccessExample.class,
+                ApiResp.ErrorExample.class
+        }
+)
 @Getter
 @Builder
 public class ApiResp<T> {
@@ -81,6 +88,7 @@ public class ApiResp<T> {
                 .timestamp(System.currentTimeMillis())
                 .build();
     }
+
     public static <T> ApiResp<T> error(String message, String error, int errorCode) {
         return ApiResp.<T>builder()
                 .success(false)
@@ -90,5 +98,48 @@ public class ApiResp<T> {
                 .errorCode(errorCode)
                 .timestamp(System.currentTimeMillis())
                 .build();
+    }
+
+    // Inner classes for examples
+    @Schema(name = "SuccessResponse")
+    public static class SuccessExample {
+        @Schema(example = "true")
+        public boolean success;
+
+        @Schema(example = "Operation completed successfully")
+        public String message;
+
+        @Schema(example = "[{\"id\": 1, \"name\": \"Example\"}]")
+        public List<?> data;
+
+        @Schema(example = "null")
+        public List<String> errors;
+
+        @Schema(example = "0")
+        public int errorCode;
+
+        @Schema(example = "1625097600000")
+        public long timestamp;
+    }
+
+    @Schema(name = "ErrorResponse")
+    public static class ErrorExample {
+        @Schema(example = "false")
+        public boolean success;
+
+        @Schema(example = "An error occurred")
+        public String message;
+
+        @Schema(example = "null")
+        public List<?> data;
+
+        @Schema(example = "[\"Validation failed\", \"Field 'name' is required\"]")
+        public List<String> errors;
+
+        @Schema(example = "400")
+        public int errorCode;
+
+        @Schema(example = "1625097600000")
+        public long timestamp;
     }
 }

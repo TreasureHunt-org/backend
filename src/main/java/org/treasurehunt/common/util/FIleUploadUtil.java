@@ -28,4 +28,27 @@ public class FIleUploadUtil {
             throw new IOException("Could not save image file: " + cleanFilename, ioException);
         }
     }
+
+    /**
+     * Deletes a file from the specified directory
+     *
+     * @param uploadDir the directory where the file is located
+     * @param filename the name of the file to delete
+     * @return true if the file was successfully deleted, false otherwise
+     */
+    public static boolean deleteFile(String uploadDir, String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return false;
+        }
+
+        try {
+            Path uploadPath = Paths.get(uploadDir);
+            String cleanFilename = StringUtils.cleanPath(filename);
+            Path filePath = uploadPath.resolve(cleanFilename);
+
+            return Files.deleteIfExists(filePath);
+        } catch (IOException e) {
+            return false;
+        }
+    }
 }

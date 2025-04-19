@@ -30,7 +30,7 @@ public class ChallengeCode {
 
     @NotNull
     @Lob
-    @Column(name = "code", nullable = false)
+    @Column(name = "code", nullable = false, columnDefinition = "BLOB")
     private String code;
 
 }

@@ -12,6 +12,7 @@ public class UploadingConstants {
     public static final String USER_UPLOAD_DIR = "user-photos/";
     public static final String HUNT_BG_UPLOAD_DIR = "hunt-bg-photos/";
     public static final String HUNT_MAP_UPLOAD_DIR = "hunt-map-photos/";
+    public static final String CHALLENGE_PIECES_UPLOAD_DIR = "challenge-pieces/";
     public static final Set<String> ALLOWED_TYPES = Set.of("image/png", "image/jpeg");
 
 }

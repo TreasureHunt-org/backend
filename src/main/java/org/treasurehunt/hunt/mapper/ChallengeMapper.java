@@ -3,6 +3,7 @@ package org.treasurehunt.hunt.mapper;
 import org.mapstruct.Mapper;
 import org.treasurehunt.hunt.api.ChallengeCodeRequest;
 import org.treasurehunt.hunt.api.CreateChallengeDTO;
+import org.treasurehunt.hunt.api.CreateChallengeResponse;
 import org.treasurehunt.hunt.api.TestCaseDTO;
 import org.treasurehunt.hunt.repository.entity.Challenge;
 import org.treasurehunt.hunt.repository.entity.ChallengeCode;
@@ -25,6 +26,8 @@ public abstract class ChallengeMapper {
 //                .challengeCodes(fromChallengeCodeRequests(dto.getChallengeCode()))
                 .build();
     }
+
+    public abstract CreateChallengeResponse fromEntity(Challenge challenge);
 
     private List<ChallengeCode> fromChallengeCodeRequests(ChallengeCodeRequest codeRequest) {
         return fromChallengeCodeRequests(List.of(codeRequest));

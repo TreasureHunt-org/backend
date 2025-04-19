@@ -3,6 +3,7 @@ target/
 user-photos/
 hunt-bg-photos/
 hunt-map-photos/
+challenge-pieces/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
