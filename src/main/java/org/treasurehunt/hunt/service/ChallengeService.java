@@ -9,10 +9,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.treasurehunt.common.enums.ChallengeType;
 import org.treasurehunt.common.util.FIleUploadUtil;
+import org.treasurehunt.common.validation.ValidatorService;
 import org.treasurehunt.exception.BadRequestException;
 import org.treasurehunt.exception.EntityNotFoundException;
 import org.treasurehunt.hunt.api.CreateChallengeDTO;
 import org.treasurehunt.hunt.api.CreateChallengeResponse;
+import org.treasurehunt.hunt.api.SubmitSolutionRequest;
+import org.treasurehunt.hunt.api.SubmitSolutionResponse;
 import org.treasurehunt.hunt.mapper.ChallengeMapper;
 import org.treasurehunt.hunt.repository.ChallengeRepository;
 import org.treasurehunt.hunt.repository.HuntRepository;
@@ -26,7 +29,6 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static org.treasurehunt.common.constants.UploadingConstants.ALLOWED_TYPES;
 import static org.treasurehunt.common.constants.UploadingConstants.CHALLENGE_PIECES_UPLOAD_DIR;
@@ -40,6 +42,8 @@ public class ChallengeService {
     private final HuntRepository huntRepository;
     private final ChallengeMapper challengeMapper;
     private final ObjectMapper objectMapper;
+    private final Judge0Service judge0Service;
+    private final ValidatorService validatorService;
 
 
     @Transactional
@@ -47,6 +51,13 @@ public class ChallengeService {
         try {
             // Convert JSON string to CreateChallengeDTO object
             CreateChallengeDTO challengeDTO = objectMapper.readValue(createChallengeDTO, CreateChallengeDTO.class);
+
+            // Validate the DTO
+            validatorService.validate(challengeDTO);
+
+            if (challengeDTO.getChallengeType() == ChallengeType.CODING) {
+                validatorService.validate(challengeDTO.getChallengeCode());
+            }
 
             // Step 1: Get the hunt by ID first
             Hunt huntById = huntRepository.findById(huntId)
@@ -87,7 +98,7 @@ public class ChallengeService {
 
             // Step 6: Handle TestCases if provided, and the challenge type is not 'GAME'
             if (challengeDTO.getTestCases() != null && !challengeDTO.getTestCases().isEmpty()
-                    && challengeDTO.getChallengeType() != ChallengeType.GAME) {
+                && challengeDTO.getChallengeType() != ChallengeType.GAME) {
                 List<TestCase> testCases = challengeDTO.getTestCases().stream()
                         .map(dto -> {
                             TestCase testCase = new TestCase();
@@ -110,7 +121,7 @@ public class ChallengeService {
 
     /**
      * Retrieves a challenge by its ID
-     * 
+     *
      * @param challengeId the ID of the challenge to retrieve
      * @return the challenge response DTO
      * @throws EntityNotFoundException if the challenge is not found
@@ -126,11 +137,10 @@ public class ChallengeService {
      * Deletes a challenge by its ID and removes its associated image file
      *
      * @param challengeId the ID of the challenge to delete
-     * @return true if the challenge was successfully deleted, false otherwise
      * @throws EntityNotFoundException if the challenge is not found
      */
     @Transactional
-    public boolean deleteChallenge(Long challengeId) {
+    public void deleteChallenge(Long challengeId) {
         log.info("Deleting challenge with ID: {}", challengeId);
 
         // Find the challenge by ID
@@ -154,6 +164,71 @@ public class ChallengeService {
         }
 
         log.info("Challenge with ID: {} successfully deleted", challengeId);
-        return true;
+    }
+
+    /**
+     * Retrieves all challenges for a specific hunt
+     *
+     * @param huntId the ID of the hunt
+     * @return a list of challenge response DTOs
+     */
+    public List<CreateChallengeResponse> getChallengesByHuntId(Long huntId) {
+        // Verify that the hunt exists
+        huntRepository.findById(huntId)
+                .orElseThrow(() -> new EntityNotFoundException(huntId, Hunt.class));
+
+        // Get all challenges for the hunt
+        List<Challenge> challenges = challengeRepository.findByHuntId(huntId);
+
+        // Map the challenges to DTOs and return
+        return challenges.stream()
+                .map(challengeMapper::fromEntity)
+                .toList();
+    }
+
+    /**
+     * Submits a solution to a challenge and validates it using Judge0
+     *
+     * @param userId  the ID of the user submitting the solution
+     * @param request the solution submission request
+     * @return the result of the submission
+     */
+    @Transactional
+    public SubmitSolutionResponse submitSolution(Long userId, SubmitSolutionRequest request) {
+        log.info("User {} submitting solution for challenge {}", userId, request.challengeId());
+
+        // Get the challenge
+        Challenge challenge = challengeRepository.findById(request.challengeId())
+                .orElseThrow(() -> new EntityNotFoundException(request.challengeId(), Challenge.class));
+
+        // Verify that the challenge type is CODING or BUGFIX
+        if (challenge.getChallengeType() != ChallengeType.CODING &&
+            challenge.getChallengeType() != ChallengeType.BUGFIX) {
+            throw new BadRequestException("Challenge type must be CODING or BUGFIX for code submission");
+        }
+
+        // Get the test cases
+        List<TestCase> testCases = challenge.getTestCases();
+        if (testCases == null || testCases.isEmpty()) {
+            throw new BadRequestException("Challenge has no test cases");
+        }
+
+        // Validate the code using Judge0
+        List<SubmitSolutionResponse.TestCaseResult> testCaseResults =
+                judge0Service.validateCode(request.sourceCode(), request.language(), testCases);
+
+        // Check if all test cases passed
+        boolean allPassed = testCaseResults.stream().allMatch(SubmitSolutionResponse.TestCaseResult::passed);
+
+        String message = allPassed ?
+                "All test cases passed! You've completed the challenge." :
+                "Some test cases failed. Please check the results and try again.";
+
+        return new org.treasurehunt.hunt.api.SubmitSolutionResponse(
+                challenge.getId(),
+                allPassed,
+                message,
+                testCaseResults
+        );
     }
 }

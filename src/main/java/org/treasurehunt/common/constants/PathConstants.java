@@ -25,7 +25,9 @@ public final class PathConstants {
 
     public static final String HUNT_BASE = "hunts";
     public static final String HUNT_ID_CHALLENGE = "{id}/challenges";
+    public static final String HUNT_ME = "me";
 
     public static final String CHALLENGE_BASE = "challenges";
+    public static final String CHALLENGE_SUBMIT = "challenges/submit";
 
 }

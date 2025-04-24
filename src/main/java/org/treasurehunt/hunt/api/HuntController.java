@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.data.domain.Page;
@@ -27,7 +26,6 @@ import org.treasurehunt.exception.AuthenticationFailedException;
 import org.treasurehunt.exception.BadRequestException;
 import org.treasurehunt.hunt.mapper.HuntMapper;
 import org.treasurehunt.hunt.repository.ChallengeRepository;
-import org.treasurehunt.hunt.repository.entity.Challenge;
 import org.treasurehunt.hunt.service.ChallengeService;
 import org.treasurehunt.hunt.service.HuntService;
 import org.treasurehunt.hunt.repository.entity.Hunt;
@@ -38,7 +36,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.CREATED;
 import static org.springframework.http.HttpStatus.OK;
 import static org.treasurehunt.common.constants.PathConstants.*;
@@ -51,16 +48,7 @@ import static org.treasurehunt.common.constants.PathConstants.*;
 @Tag(name = "Hunt Management", description = "APIs for managing treasure hunts")
 public class HuntController {
 
-    /*
-    TODO
-        -Allow Users with Organizer Role to create a hunt
-            -When a hunt is fully created it will be submitted for review [ POST /hunts/{id}/submit ]
-            -Drafted Hunt
-                -[ POST /hunts/drafts ] Create a hunt in DRAFT state (Save Draft)
-                -[ PUT /hunts/drafts/{id} ]	Update an existing draft hunt
-                -
-        -Retrieve Hunts using Pagination && Filtering
-     */
+
     private final HuntService huntService;
     private final HuntMapper huntMapper;
     private final ChallengeService challengeService;
@@ -106,18 +94,7 @@ public class HuntController {
         );
     }
 
-    /***
-     * TODO
-     *  Accept Challenge Data to create it in a requestBody, like:
-     *      - Challenge type
-     *      - Challenge Code
-     *      - Challenge Question
-     *      - Meta data maybe ? about the coding or the bugfix challenges
-     *      - If it is a game then they need to provide a URL for the hosted game [Requires to create other endpoints later on]
-     *      - Test cases in case it was a bugfix or a coding challenge
-     *      - Points on a challenge
-     *      - etc.. as we go on we discover more things to add
-     */
+
     @Operation(
             summary = "Add a challenge to a hunt",
             description = "Adds a new challenge to an existing hunt with an optional map piece image"
@@ -212,9 +189,7 @@ public class HuntController {
     @GetMapping(CHALLENGE_BASE)
     public ResponseEntity<List<String>> getAllChallenges() {
         return ResponseEntity.ok(challengeRepository.findAll()
-                .stream().map(challenge -> {
-                    return challenge.getChallengeCodes().getFirst().getCode();
-                }).toList());
+                .stream().map(challenge -> challenge.getChallengeCodes().getFirst().getCode()).toList());
     }
 
     @Operation(
@@ -237,6 +212,89 @@ public class HuntController {
     }
 
     @Operation(
+            summary = "Get challenges by hunt ID",
+            description = "Retrieves all challenges associated with a specific hunt"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved list of challenges for the hunt"),
+            @ApiResponse(responseCode = "404", description = "Hunt not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class)))
+    })
+    @GetMapping(HUNT_ID_CHALLENGE)
+    public ResponseEntity<List<CreateChallengeResponse>> getChallengesByHuntId(
+            @Parameter(description = "Hunt ID") @PathVariable Long id) {
+        List<CreateChallengeResponse> challenges = challengeService.getChallengesByHuntId(id);
+        return ResponseEntity.status(OK).body(challenges);
+    }
+
+    @Operation(
+            summary = "Get hunts for current user",
+            description = "Retrieves a paginated list of hunts created by the currently logged-in user"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved list of user's hunts"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class))),
+            @ApiResponse(responseCode = "404", description = "User not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class)))
+    })
+    @GetMapping(HUNT_ME)
+    public ResponseEntity<Page<DraftHuntDTO>> getMyHunts(
+            @Parameter(description = "Page number (zero-based)") 
+            @RequestParam(defaultValue = "0") int page,
+
+            @Parameter(description = "Page size") 
+            @RequestParam(defaultValue = "10") int size,
+
+            @Parameter(description = "Sort field") 
+            @RequestParam(defaultValue = "id") String sort,
+
+            @Parameter(description = "Sort direction (ASC or DESC)") 
+            @RequestParam(defaultValue = "ASC") String direction,
+
+            @Parameter(description = "Filter by title (case-insensitive, partial match)") 
+            @RequestParam(required = false) String title,
+
+            @Parameter(description = "Filter by hunt status") 
+            @RequestParam(required = false) HuntStatus status,
+
+            @Parameter(description = "Filter by start date (from)") 
+            @RequestParam(required = false) Instant startDateFrom,
+
+            @Parameter(description = "Filter by start date (to)") 
+            @RequestParam(required = false) Instant startDateTo,
+
+            @Parameter(description = "Filter by end date (from)") 
+            @RequestParam(required = false) Instant endDateFrom,
+
+            @Parameter(description = "Filter by end date (to)") 
+            @RequestParam(required = false) Instant endDateTo
+    ) {
+        UserDetailsDTO user = getUserFromSecurityContext()
+                .orElseThrow(() -> new EntityNotFoundException("No authenticated user found"));
+
+        Pageable pageable = PageRequest.of(page, size, Sort.Direction.fromString(direction), sort);
+
+        HuntFilter filter = HuntFilter.builder()
+                .title(title)
+                .status(status)
+                .organizerId(user.getId())
+                .startDateFrom(startDateFrom)
+                .startDateTo(startDateTo)
+                .endDateFrom(endDateFrom)
+                .endDateTo(endDateTo)
+                .build();
+
+        Page<Hunt> hunts = huntService.getAllHunts(pageable, filter);
+        Page<DraftHuntDTO> huntDTOs = hunts.map(huntMapper::toDraftDTO);
+
+        return ResponseEntity.ok(huntDTOs);
+    }
+
+    @Operation(
             summary = "Delete challenge by ID",
             description = "Deletes a challenge by its unique identifier and removes its associated image file"
     )
@@ -250,12 +308,35 @@ public class HuntController {
     @DeleteMapping(CHALLENGE_BASE + "/{id}")
     public ResponseEntity<ApiResp<Void>> deleteChallenge(
             @Parameter(description = "Challenge ID") @PathVariable Long id) {
-        UserDetailsDTO user = getUserFromSecurityContext()
+        getUserFromSecurityContext()
                 .orElseThrow(() -> new AuthenticationFailedException("Authentication failed"));
 
         challengeService.deleteChallenge(id);
 
         return ResponseEntity.ok(ApiResp.success(null, "Challenge successfully deleted"));
+    }
+
+    @Operation(
+            summary = "Submit a solution to a challenge",
+            description = "Submits a solution to a coding or bugfix challenge and validates it using Judge0"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Solution submitted and validated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid input or challenge type not supported"),
+            @ApiResponse(responseCode = "401", description = "Authentication failed"),
+            @ApiResponse(responseCode = "404", description = "Challenge not found")
+    })
+    @PostMapping(CHALLENGE_SUBMIT)
+    public ResponseEntity<SubmitSolutionResponse> submitSolution(
+            @Parameter(description = "Solution submission request") 
+            @Valid @RequestBody SubmitSolutionRequest request) {
+
+        UserDetailsDTO user = getUserFromSecurityContext()
+                .orElseThrow(() -> new AuthenticationFailedException("Authentication failed"));
+
+        SubmitSolutionResponse response = challengeService.submitSolution(user.getId(), request);
+
+        return ResponseEntity.ok(response);
     }
 
     private Optional<UserDetailsDTO> getUserFromSecurityContext() {
