@@ -18,11 +18,11 @@ public class CreateHuntRequest {
     @NotBlank(message = "Description is required")
     private String description;
 
-    @NotNull(message = "Start date is required")
-    private Instant startDate;
-
-    @NotNull(message = "End date is required")
-    private Instant endDate;
+//    @NotNull(message = "Start date is required")
+//    private Instant startDate;
+//
+//    @NotNull(message = "End date is required")
+//    private Instant endDate;
 
     @NotNull(message = "Location is required")
     private Location location;

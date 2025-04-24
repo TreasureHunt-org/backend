@@ -48,6 +48,14 @@ public class Challenge {
     )
     private List<ChallengeCode> challengeCodes;
 
+    @OneToMany(
+            mappedBy = "challenge",
+            fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<OptimalSolution> optimalSolutions;
+
     @Size(max = 2083)
     @Column(name = "map_piece_uri", length = 2083)
     private String mapPieceUri;

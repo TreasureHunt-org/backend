@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.treasurehunt.common.enums.ChallengeType;
+import org.treasurehunt.common.enums.Roles;
 import org.treasurehunt.common.util.FIleUploadUtil;
 import org.treasurehunt.common.validation.ValidatorService;
 import org.treasurehunt.exception.BadRequestException;
@@ -19,14 +21,14 @@ import org.treasurehunt.hunt.api.SubmitSolutionResponse;
 import org.treasurehunt.hunt.mapper.ChallengeMapper;
 import org.treasurehunt.hunt.repository.ChallengeRepository;
 import org.treasurehunt.hunt.repository.HuntRepository;
-import org.treasurehunt.hunt.repository.entity.Challenge;
-import org.treasurehunt.hunt.repository.entity.ChallengeCode;
-import org.treasurehunt.hunt.repository.entity.Hunt;
-import org.treasurehunt.hunt.repository.entity.TestCase;
+import org.treasurehunt.hunt.repository.entity.*;
 import org.treasurehunt.user.repository.entity.User;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -55,9 +57,6 @@ public class ChallengeService {
             // Validate the DTO
             validatorService.validate(challengeDTO);
 
-            if (challengeDTO.getChallengeType() == ChallengeType.CODING) {
-                validatorService.validate(challengeDTO.getChallengeCode());
-            }
 
             // Step 1: Get the hunt by ID first
             Hunt huntById = huntRepository.findById(huntId)
@@ -88,17 +87,43 @@ public class ChallengeService {
             }
 
             // Step 5: Handle ChallengeCode if provided
-            if (challengeDTO.getChallengeCode() != null) {
-                ChallengeCode challengeCode = new ChallengeCode();
-                challengeCode.setChallenge(challengeToCreate);
-                challengeCode.setCode(challengeDTO.getChallengeCode().code());
-                challengeCode.setLanguage(challengeDTO.getChallengeCode().language());
-                challengeToCreate.setChallengeCodes(List.of(challengeCode)); // Use a list to set the ChallengeCodes
+            if (EnumSet.of(ChallengeType.CODING, ChallengeType.BUGFIX).contains(challengeDTO.getChallengeType()) && (challengeDTO.getChallengeCodes() != null)) {
+                // verify the validity
+                challengeDTO.getChallengeCodes()
+                        .forEach(validatorService::validate);
+
+                List<ChallengeCode> challengeCodes = new ArrayList<>();
+                challengeDTO.getChallengeCodes().forEach(
+                        (dto -> {
+                            ChallengeCode challengeCode = new ChallengeCode();
+                            challengeCode.setChallenge(challengeToCreate);
+                            challengeCode.setCode(dto.code());
+                            challengeCode.setLanguage(dto.language());
+                            challengeCodes.add(challengeCode);
+                        })
+                );
+                challengeToCreate.setChallengeCodes(challengeCodes);
+            } else if (EnumSet.of(ChallengeType.CODING, ChallengeType.BUGFIX).contains(challengeDTO.getChallengeType())) {
+                throw new BadRequestException(challengeDTO.getChallengeType().name() + " Must have at least one challenge code");
             }
 
-            // Step 6: Handle TestCases if provided, and the challenge type is not 'GAME'
-            if (challengeDTO.getTestCases() != null && !challengeDTO.getTestCases().isEmpty()
-                && challengeDTO.getChallengeType() != ChallengeType.GAME) {
+            if (challengeDTO.getChallengeType().equals(ChallengeType.BUGFIX)
+                && (challengeDTO.getOptimalSolutions() == null)) {
+                throw new BadRequestException("Bug fix must have at least one optimal solution code to test");
+            }else if(challengeDTO.getChallengeType().equals(ChallengeType.BUGFIX)){
+                challengeDTO.getOptimalSolutions()
+                        .forEach(validatorService::validate);
+                challengeDTO.getOptimalSolutions()
+                                .forEach(sol -> {
+                                    sol.setChallenge(challengeToCreate);
+                                });
+                challengeToCreate.setOptimalSolutions(challengeDTO.getOptimalSolutions());
+            }
+
+            if (EnumSet.of(ChallengeType.CODING, ChallengeType.BUGFIX).contains(challengeDTO.getChallengeType()) &&
+                (challengeDTO.getTestCases() == null || challengeDTO.getTestCases().isEmpty())) {
+                throw new BadRequestException(challengeDTO.getChallengeType().name() + " Must have test cases");
+            } else if(!challengeDTO.getChallengeType().equals(ChallengeType.GAME)){
                 List<TestCase> testCases = challengeDTO.getTestCases().stream()
                         .map(dto -> {
                             TestCase testCase = new TestCase();
@@ -112,7 +137,6 @@ public class ChallengeService {
                 challengeToCreate.setTestCases(testCases);
             }
 
-            // Step 7: Save the challenge to the database
             return challengeMapper.fromEntity(challengeRepository.save(challengeToCreate));
         } catch (JsonProcessingException ex) {
             throw new BadRequestException("Failed to process Challenge JSON: " + ex.getMessage());
@@ -176,6 +200,48 @@ public class ChallengeService {
         // Verify that the hunt exists
         huntRepository.findById(huntId)
                 .orElseThrow(() -> new EntityNotFoundException(huntId, Hunt.class));
+
+        // Get all challenges for the hunt
+        List<Challenge> challenges = challengeRepository.findByHuntId(huntId);
+
+        // Map the challenges to DTOs and return
+        return challenges.stream()
+                .map(challengeMapper::fromEntity)
+                .toList();
+    }
+
+    /**
+     * Retrieves all challenges for a specific hunt
+     * Only allows access if the user is an admin or the organizer of the hunt
+     *
+     * @param huntId the ID of the hunt
+     * @param userId the ID of the user making the request
+     * @param authorities the authorities of the user making the request
+     * @return a list of challenge response DTOs
+     * @throws EntityNotFoundException if the hunt is not found
+     * @throws RuntimeException if the user is not authorized to access the hunt's challenges
+     */
+    public List<CreateChallengeResponse> getChallengesByHuntIdWithAuth(Long huntId, Long userId, Collection<? extends GrantedAuthority> authorities) {
+        // Verify that the hunt exists
+        Hunt hunt = huntRepository.findById(huntId)
+                .orElseThrow(() -> new EntityNotFoundException(huntId, Hunt.class));
+
+        // Check if user is admin
+        boolean isAdmin = false;
+        for (GrantedAuthority authority : authorities) {
+            if (authority.getAuthority().equals(Roles.ADMIN.name())) {
+                isAdmin = true;
+                break;
+            }
+        }
+
+        // If not admin, check if user is the organizer of the hunt
+        if (!isAdmin) {
+            User huntOrganizer = hunt.getOrganizer();
+            if (!Objects.equals(huntOrganizer.getId(), userId)) {
+                throw new RuntimeException("You are not authorized to access this hunt's challenges");
+            }
+        }
 
         // Get all challenges for the hunt
         List<Challenge> challenges = challengeRepository.findByHuntId(huntId);

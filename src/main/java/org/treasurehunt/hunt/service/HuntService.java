@@ -63,8 +63,8 @@ public class HuntService {
                     .organizer(organizer)
                     .title(createHuntRequest.getTitle())
                     .description(createHuntRequest.getDescription())
-                    .startDate(createHuntRequest.getStartDate())
-                    .endDate(createHuntRequest.getEndDate())
+//                    .startDate(createHuntRequest.getStartDate())
+//                    .endDate(createHuntRequest.getEndDate())
                     .location(savedLocation)
                     .status(HuntStatus.DRAFT)
                     .build();

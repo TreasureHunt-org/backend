@@ -213,10 +213,12 @@ public class HuntController {
 
     @Operation(
             summary = "Get challenges by hunt ID",
-            description = "Retrieves all challenges associated with a specific hunt"
+            description = "Retrieves all challenges associated with a specific hunt. Only allows access if the user is an admin or the organizer of the hunt."
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Successfully retrieved list of challenges for the hunt"),
+            @ApiResponse(responseCode = "401", description = "Authentication failed"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not authorized to access this hunt's challenges"),
             @ApiResponse(responseCode = "404", description = "Hunt not found",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResp.ErrorExample.class)))
@@ -224,7 +226,10 @@ public class HuntController {
     @GetMapping(HUNT_ID_CHALLENGE)
     public ResponseEntity<List<CreateChallengeResponse>> getChallengesByHuntId(
             @Parameter(description = "Hunt ID") @PathVariable Long id) {
-        List<CreateChallengeResponse> challenges = challengeService.getChallengesByHuntId(id);
+        UserDetailsDTO user = getUserFromSecurityContext()
+                .orElseThrow(() -> new AuthenticationFailedException("Authentication failed"));
+
+        List<CreateChallengeResponse> challenges = challengeService.getChallengesByHuntIdWithAuth(id, user.getId(), user.getAuthorities());
         return ResponseEntity.status(OK).body(challenges);
     }
 

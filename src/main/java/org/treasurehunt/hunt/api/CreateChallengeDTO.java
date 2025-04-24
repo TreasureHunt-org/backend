@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.treasurehunt.common.enums.ChallengeType;
 import org.treasurehunt.hunt.repository.entity.ChallengeCode;
+import org.treasurehunt.hunt.repository.entity.OptimalSolution;
 
 import java.util.List;
 
@@ -25,7 +26,8 @@ public class CreateChallengeDTO {
     @NotNull(message = "Challenge type is required" )
     private ChallengeType challengeType;
 
-    private ChallengeCodeRequest challengeCode;
+    private List<ChallengeCodeRequest> challengeCodes;
+    private List<OptimalSolution> optimalSolutions;
 
     @Size(max = 2083, message = "External game URI must be at most 2083 characters" )
     private String externalGameUri;

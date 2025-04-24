@@ -1,6 +1,7 @@
 package org.treasurehunt.hunt.repository.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -49,9 +50,11 @@ public class Hunt {
     private User winner;
 
     @Column(name = "start_date")
+    @Future
     private Instant startDate;
 
     @Column(name = "end_date")
+    @Future
     private Instant endDate;
 
     @NotNull
