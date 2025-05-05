@@ -1,12 +1,11 @@
 package org.treasurehunt.hunt.mapper;
 
 import org.mapstruct.Mapper;
-import org.treasurehunt.hunt.api.ChallengeCodeRequest;
-import org.treasurehunt.hunt.api.CreateChallengeDTO;
-import org.treasurehunt.hunt.api.CreateChallengeResponse;
-import org.treasurehunt.hunt.api.TestCaseDTO;
+import org.mapstruct.Mapping;
+import org.treasurehunt.hunt.api.*;
 import org.treasurehunt.hunt.repository.entity.Challenge;
 import org.treasurehunt.hunt.repository.entity.ChallengeCode;
+import org.treasurehunt.hunt.repository.entity.OptimalSolution;
 import org.treasurehunt.hunt.repository.entity.TestCase;
 
 import java.util.List;
@@ -27,7 +26,33 @@ public abstract class ChallengeMapper {
                 .build();
     }
 
+    @Mapping(target = "challengeId", source = "id")
+    @Mapping(target = "optimalSolutions", expression = "java(mapOptimalSolutions(challenge.getOptimalSolutions()))")
+    @Mapping(target = "challengeCodes", expression = "java(mapChallengeCodes(challenge.getChallengeCodes()))")
     public abstract CreateChallengeResponse fromEntity(Challenge challenge);
+
+    protected List<OptimalSolutionDTO> mapOptimalSolutions(List<OptimalSolution> solutions) {
+        if (solutions == null) return null;
+        return solutions.stream()
+                .map(solution -> new OptimalSolutionDTO(
+                        solution.getId(),
+                        solution.getCode(),
+                        solution.getLanguage()
+                ))
+                .toList();
+    }
+
+    protected List<ChallengeCodeDTO> mapChallengeCodes(List<ChallengeCode> codes) {
+        if (codes == null) return null;
+        return codes.stream()
+                .map(code -> new ChallengeCodeDTO(
+                        code.getId(),
+                        code.getCode(),
+                        code.getLanguage()
+                ))
+                .toList();
+    }
+
 
     private List<ChallengeCode> fromChallengeCodeRequests(ChallengeCodeRequest codeRequest) {
         return fromChallengeCodeRequests(List.of(codeRequest));

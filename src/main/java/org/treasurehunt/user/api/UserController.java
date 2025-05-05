@@ -27,6 +27,7 @@ import org.treasurehunt.common.api.PageDTO;
 import org.treasurehunt.common.api.PageResponse;
 import org.treasurehunt.common.enums.Roles;
 import org.treasurehunt.security.UserDetailsDTO;
+import org.treasurehunt.user.mapper.UserMapper;
 import org.treasurehunt.user.service.UserService;
 import org.treasurehunt.user.repository.UserSearchCriteria;
 
@@ -49,9 +50,11 @@ public class UserController {
 
 
     private final UserService userService;
+    private final UserMapper userMapper;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, UserMapper userMapper) {
         this.userService = userService;
+        this.userMapper = userMapper;
     }
 
     @PreAuthorize("hasAuthority('ADMIN')")
@@ -154,6 +157,16 @@ public class UserController {
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
+    }
+
+
+    @GetMapping("{userId}")
+    public ResponseEntity<PublicUserProfile> getUserById(
+            @PathVariable("userId") Long id
+    ){
+        return ResponseEntity.ok(
+          userMapper.toPublicUser(userService.getUser(id))
+        );
     }
 
     private Optional<UserDetailsDTO> getUserFromSecurityContext() {

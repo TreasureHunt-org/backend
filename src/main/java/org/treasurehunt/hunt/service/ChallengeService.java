@@ -10,27 +10,25 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.treasurehunt.common.enums.ChallengeType;
 import org.treasurehunt.common.enums.Roles;
+import org.treasurehunt.common.util.AuthUtil;
 import org.treasurehunt.common.util.FIleUploadUtil;
 import org.treasurehunt.common.validation.ValidatorService;
 import org.treasurehunt.exception.BadRequestException;
 import org.treasurehunt.exception.EntityNotFoundException;
-import org.treasurehunt.hunt.api.CreateChallengeDTO;
-import org.treasurehunt.hunt.api.CreateChallengeResponse;
-import org.treasurehunt.hunt.api.SubmitSolutionRequest;
-import org.treasurehunt.hunt.api.SubmitSolutionResponse;
+import org.treasurehunt.hunt.api.*;
 import org.treasurehunt.hunt.mapper.ChallengeMapper;
 import org.treasurehunt.hunt.repository.ChallengeRepository;
 import org.treasurehunt.hunt.repository.HuntRepository;
 import org.treasurehunt.hunt.repository.entity.*;
+import org.treasurehunt.security.UserDetailsDTO;
+import org.treasurehunt.submissions.repo.Submission;
+import org.treasurehunt.submissions.repo.SubmissionRepo;
+import org.treasurehunt.user.repository.UserRepository;
 import org.treasurehunt.user.repository.entity.User;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 import static org.treasurehunt.common.constants.UploadingConstants.ALLOWED_TYPES;
 import static org.treasurehunt.common.constants.UploadingConstants.CHALLENGE_PIECES_UPLOAD_DIR;
@@ -46,6 +44,8 @@ public class ChallengeService {
     private final ObjectMapper objectMapper;
     private final Judge0Service judge0Service;
     private final ValidatorService validatorService;
+    private final UserRepository userRepository;
+    private final SubmissionRepo submissionRepo;
 
 
     @Transactional
@@ -110,20 +110,20 @@ public class ChallengeService {
             if (challengeDTO.getChallengeType().equals(ChallengeType.BUGFIX)
                 && (challengeDTO.getOptimalSolutions() == null)) {
                 throw new BadRequestException("Bug fix must have at least one optimal solution code to test");
-            }else if(challengeDTO.getChallengeType().equals(ChallengeType.BUGFIX)){
+            } else if (challengeDTO.getChallengeType().equals(ChallengeType.BUGFIX)) {
                 challengeDTO.getOptimalSolutions()
                         .forEach(validatorService::validate);
                 challengeDTO.getOptimalSolutions()
-                                .forEach(sol -> {
-                                    sol.setChallenge(challengeToCreate);
-                                });
+                        .forEach(sol -> {
+                            sol.setChallenge(challengeToCreate);
+                        });
                 challengeToCreate.setOptimalSolutions(challengeDTO.getOptimalSolutions());
             }
 
             if (EnumSet.of(ChallengeType.CODING, ChallengeType.BUGFIX).contains(challengeDTO.getChallengeType()) &&
                 (challengeDTO.getTestCases() == null || challengeDTO.getTestCases().isEmpty())) {
                 throw new BadRequestException(challengeDTO.getChallengeType().name() + " Must have test cases");
-            } else if(!challengeDTO.getChallengeType().equals(ChallengeType.GAME)){
+            } else if (!challengeDTO.getChallengeType().equals(ChallengeType.GAME)) {
                 List<TestCase> testCases = challengeDTO.getTestCases().stream()
                         .map(dto -> {
                             TestCase testCase = new TestCase();
@@ -214,12 +214,12 @@ public class ChallengeService {
      * Retrieves all challenges for a specific hunt
      * Only allows access if the user is an admin or the organizer of the hunt
      *
-     * @param huntId the ID of the hunt
-     * @param userId the ID of the user making the request
+     * @param huntId      the ID of the hunt
+     * @param userId      the ID of the user making the request
      * @param authorities the authorities of the user making the request
      * @return a list of challenge response DTOs
      * @throws EntityNotFoundException if the hunt is not found
-     * @throws RuntimeException if the user is not authorized to access the hunt's challenges
+     * @throws RuntimeException        if the user is not authorized to access the hunt's challenges
      */
     public List<CreateChallengeResponse> getChallengesByHuntIdWithAuth(Long huntId, Long userId, Collection<? extends GrantedAuthority> authorities) {
         // Verify that the hunt exists
@@ -229,7 +229,7 @@ public class ChallengeService {
         // Check if user is admin
         boolean isAdmin = false;
         for (GrantedAuthority authority : authorities) {
-            if (authority.getAuthority().equals(Roles.ADMIN.name())) {
+            if (List.of(Roles.ADMIN.name(), Roles.REVIEWER.name()).contains(authority.getAuthority())) {
                 isAdmin = true;
                 break;
             }
@@ -296,5 +296,77 @@ public class ChallengeService {
                 message,
                 testCaseResults
         );
+    }
+
+    public ChallengeInfo getChallengesInfo(Long huntId) {
+        Hunt hunt = huntRepository.findById(huntId)
+                .orElseThrow(() -> new EntityNotFoundException(huntId, Hunt.class));
+
+        User user = userRepository.findById(AuthUtil.getUserFromSecurityContext().orElseThrow().getId())
+                .orElseThrow(() -> new EntityNotFoundException(huntId, Hunt.class));
+
+        List<Challenge> challenges = hunt.getChallenges();
+
+        List<ChallengeState> challengeStates = new ArrayList<>();
+        long total = 0L;
+        for (Challenge c : challenges) {
+            List<Submission> submissions = submissionRepo.findByChallengeIdAndUserId(c.getId(), user.getId());
+            ChallengeState challengeState = new ChallengeState();
+            boolean solved = submissions.stream()
+                    .anyMatch(s -> s.getStatus().equals(Submission.SubmissionStatus.SUCCESS));
+            Long score = submissions.stream()
+                    .reduce(0L,
+                            (acc, sub) -> sub.getStatus().equals(Submission.SubmissionStatus.FAIL) ? acc - 1L : acc,
+                            Long::sum);
+            score = solved ? score + c.getPoints() : score;
+            challengeState.setChallenge_id(c.getId());
+            challengeState.setSolved(solved);
+            total = Long.sum(total, score);
+
+            challengeStates.add(challengeState);
+        }
+
+        return new ChallengeInfo(total, challengeStates);
+    }
+
+    public String getImgPiece(Long id) {
+        return challengeRepository.getImageById(id);
+    }
+
+    @Transactional
+    public void addScoreToGameChallenge(Long challengeId) {
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new EntityNotFoundException("No such challenge"));
+
+        UserDetailsDTO userDTO = AuthUtil.getUserFromSecurityContext()
+                .orElseThrow(() -> new EntityNotFoundException("No user found"));
+
+        User user = userRepository.findById(userDTO.getId())
+                .orElseThrow(() -> new EntityNotFoundException("No user found"));
+
+        List<Submission> submissions = submissionRepo.findByChallengeIdAndUserId(
+                challenge.getId(), user.getId()
+        );
+
+        boolean wonBefore = submissions.stream()
+                .anyMatch((submission -> submission.getStatus().equals(Submission.SubmissionStatus.SUCCESS)));
+
+        if (wonBefore) {
+            return;
+        }
+
+        int challengeScore = challenge.getPoints();
+
+        user.setScore(user.getScore() + challengeScore);
+
+        userRepository.save(user);
+
+        Submission submission = new Submission();
+        submission.setChallengeId(challengeId);
+        submission.setTime(Instant.now());
+        submission.setUserId(user.getId());
+        submission.setStatus(Submission.SubmissionStatus.SUCCESS);
+
+        submissionRepo.save(submission);
     }
 }

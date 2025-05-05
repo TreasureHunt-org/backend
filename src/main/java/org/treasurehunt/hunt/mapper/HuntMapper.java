@@ -13,6 +13,7 @@ import java.util.List;
 public abstract class HuntMapper {
 
     @Mapping(source = "organizer.id", target = "organizerId" )
+    @Mapping(source = "reviewer.id", target = "reviewerId")
     @Mapping(source = "status", target = "huntStatus" )
     public abstract DraftHuntDTO toDraftDTO(Hunt draftedHunt);
 

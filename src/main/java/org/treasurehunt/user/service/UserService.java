@@ -53,7 +53,6 @@ public class UserService {
         return PageResponse.fromPage(userMapper.toUserAuthPageResponse(userCriteriaRepository.findAllWithFilters(pageDTO, searchCriteria)));
     }
 
-    @Transactional
     public User updateRefreshToken(String email, String refreshToken) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));

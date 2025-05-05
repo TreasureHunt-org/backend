@@ -5,5 +5,6 @@ public enum HuntStatus {
     UNDER_REVIEW,
     LIVE,
     FINISHED,
-    TERMINATED
+    TERMINATED,
+    APPROVED
 }

@@ -8,6 +8,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.treasurehunt.auth.CreateUserRequest;
 import org.treasurehunt.auth.UserAuthResponse;
+import org.treasurehunt.user.api.PublicUserProfile;
 import org.treasurehunt.user.repository.entity.Role;
 import org.treasurehunt.user.repository.entity.User;
 
@@ -43,5 +44,7 @@ public abstract class UserMapper {
                 .map(role -> role.getId().getRoleName())
                 .toArray(String[]::new);
     }
+
+    public abstract PublicUserProfile toPublicUser(User user);
 
 }

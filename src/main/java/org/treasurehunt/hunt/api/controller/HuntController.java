@@ -1,4 +1,4 @@
-package org.treasurehunt.hunt.api;
+package org.treasurehunt.hunt.api.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,19 +11,25 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.treasurehunt.common.api.ApiResp;
 import org.treasurehunt.common.enums.HuntStatus;
+import org.treasurehunt.common.util.AuthUtil;
 import org.treasurehunt.exception.AuthenticationFailedException;
 import org.treasurehunt.exception.BadRequestException;
+import org.treasurehunt.hunt.api.*;
 import org.treasurehunt.hunt.mapper.HuntMapper;
 import org.treasurehunt.hunt.repository.ChallengeRepository;
 import org.treasurehunt.hunt.service.ChallengeService;
@@ -32,13 +38,17 @@ import org.treasurehunt.hunt.repository.entity.Hunt;
 import org.treasurehunt.security.UserDetailsDTO;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 import static org.springframework.http.HttpStatus.CREATED;
 import static org.springframework.http.HttpStatus.OK;
 import static org.treasurehunt.common.constants.PathConstants.*;
+import static org.treasurehunt.common.constants.UploadingConstants.*;
+import static org.treasurehunt.common.util.AuthUtil.getUserFromSecurityContext;
 
 
 @Log4j2
@@ -134,37 +144,37 @@ public class HuntController {
     })
     @GetMapping
     public ResponseEntity<Page<DraftHuntDTO>> getAllHunts(
-            @Parameter(description = "Page number (zero-based)") 
+            @Parameter(description = "Page number (zero-based)")
             @RequestParam(defaultValue = "0") int page,
 
-            @Parameter(description = "Page size") 
+            @Parameter(description = "Page size")
             @RequestParam(defaultValue = "10") int size,
 
-            @Parameter(description = "Sort field") 
+            @Parameter(description = "Sort field")
             @RequestParam(defaultValue = "id") String sort,
 
-            @Parameter(description = "Sort direction (ASC or DESC)") 
+            @Parameter(description = "Sort direction (ASC or DESC)")
             @RequestParam(defaultValue = "ASC") String direction,
 
-            @Parameter(description = "Filter by title (case-insensitive, partial match)") 
+            @Parameter(description = "Filter by title (case-insensitive, partial match)")
             @RequestParam(required = false) String title,
 
-            @Parameter(description = "Filter by hunt status") 
+            @Parameter(description = "Filter by hunt status")
             @RequestParam(required = false) HuntStatus status,
 
-            @Parameter(description = "Filter by organizer ID") 
+            @Parameter(description = "Filter by organizer ID")
             @RequestParam(required = false) Long organizerId,
 
-            @Parameter(description = "Filter by start date (from)") 
+            @Parameter(description = "Filter by start date (from)")
             @RequestParam(required = false) Instant startDateFrom,
 
-            @Parameter(description = "Filter by start date (to)") 
+            @Parameter(description = "Filter by start date (to)")
             @RequestParam(required = false) Instant startDateTo,
 
-            @Parameter(description = "Filter by end date (from)") 
+            @Parameter(description = "Filter by end date (from)")
             @RequestParam(required = false) Instant endDateFrom,
 
-            @Parameter(description = "Filter by end date (to)") 
+            @Parameter(description = "Filter by end date (to)")
             @RequestParam(required = false) Instant endDateTo
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.Direction.fromString(direction), sort);
@@ -248,34 +258,34 @@ public class HuntController {
     })
     @GetMapping(HUNT_ME)
     public ResponseEntity<Page<DraftHuntDTO>> getMyHunts(
-            @Parameter(description = "Page number (zero-based)") 
+            @Parameter(description = "Page number (zero-based)")
             @RequestParam(defaultValue = "0") int page,
 
-            @Parameter(description = "Page size") 
+            @Parameter(description = "Page size")
             @RequestParam(defaultValue = "10") int size,
 
-            @Parameter(description = "Sort field") 
+            @Parameter(description = "Sort field")
             @RequestParam(defaultValue = "id") String sort,
 
-            @Parameter(description = "Sort direction (ASC or DESC)") 
+            @Parameter(description = "Sort direction (ASC or DESC)")
             @RequestParam(defaultValue = "ASC") String direction,
 
-            @Parameter(description = "Filter by title (case-insensitive, partial match)") 
+            @Parameter(description = "Filter by title (case-insensitive, partial match)")
             @RequestParam(required = false) String title,
 
-            @Parameter(description = "Filter by hunt status") 
+            @Parameter(description = "Filter by hunt status")
             @RequestParam(required = false) HuntStatus status,
 
-            @Parameter(description = "Filter by start date (from)") 
+            @Parameter(description = "Filter by start date (from)")
             @RequestParam(required = false) Instant startDateFrom,
 
-            @Parameter(description = "Filter by start date (to)") 
+            @Parameter(description = "Filter by start date (to)")
             @RequestParam(required = false) Instant startDateTo,
 
-            @Parameter(description = "Filter by end date (from)") 
+            @Parameter(description = "Filter by end date (from)")
             @RequestParam(required = false) Instant endDateFrom,
 
-            @Parameter(description = "Filter by end date (to)") 
+            @Parameter(description = "Filter by end date (to)")
             @RequestParam(required = false) Instant endDateTo
     ) {
         UserDetailsDTO user = getUserFromSecurityContext()
@@ -321,32 +331,161 @@ public class HuntController {
         return ResponseEntity.ok(ApiResp.success(null, "Challenge successfully deleted"));
     }
 
-    @Operation(
-            summary = "Submit a solution to a challenge",
-            description = "Submits a solution to a coding or bugfix challenge and validates it using Judge0"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Solution submitted and validated successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid input or challenge type not supported"),
-            @ApiResponse(responseCode = "401", description = "Authentication failed"),
-            @ApiResponse(responseCode = "404", description = "Challenge not found")
-    })
-    @PostMapping(CHALLENGE_SUBMIT)
-    public ResponseEntity<SubmitSolutionResponse> submitSolution(
-            @Parameter(description = "Solution submission request") 
-            @Valid @RequestBody SubmitSolutionRequest request) {
+//    @Operation(
+//            summary = "Submit a solution to a challenge",
+//            description = "Submits a solution to a coding or bugfix challenge and validates it using Judge0"
+//    )
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "Solution submitted and validated successfully"),
+//            @ApiResponse(responseCode = "400", description = "Invalid input or challenge type not supported"),
+//            @ApiResponse(responseCode = "401", description = "Authentication failed"),
+//            @ApiResponse(responseCode = "404", description = "Challenge not found")
+//    })
+//    @PostMapping(CHALLENGE_SUBMIT)
+//    public ResponseEntity<SubmitSolutionResponse> submitSolution(
+//            @Parameter(description = "Solution submission request")
+//            @Valid @RequestBody SubmitSolutionRequest request) {
+//
+//        UserDetailsDTO user = getUserFromSecurityContext()
+//                .orElseThrow(() -> new AuthenticationFailedException("Authentication failed"));
+//
+//        SubmitSolutionResponse response = challengeService.submitSolution(user.getId(), request);
+//
+//        return ResponseEntity.ok(response);
+//    }
 
-        UserDetailsDTO user = getUserFromSecurityContext()
-                .orElseThrow(() -> new AuthenticationFailedException("Authentication failed"));
 
-        SubmitSolutionResponse response = challengeService.submitSolution(user.getId(), request);
-
-        return ResponseEntity.ok(response);
+    @GetMapping(HUNT_ID)
+    public ResponseEntity<DraftHuntDTO> getHuntById(
+            @PathVariable("id") Long huntId
+    ) {
+        return ResponseEntity.ok(huntService.getHunt(huntId));
     }
 
-    private Optional<UserDetailsDTO> getUserFromSecurityContext() {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth.getPrincipal() instanceof UserDetailsDTO user ? Optional.of(user) : Optional.empty();
+
+    @GetMapping("{id}/images/bg")
+    public ResponseEntity<Resource> getHuntBgImage(@PathVariable Long id) {
+        try {
+            String bgPicture = huntService.getBackgroundPic(id);
+            if (!StringUtils.isNotBlank(bgPicture)) {
+                return ResponseEntity.ok(null);
+            }
+
+            Path filePath = Paths.get(HUNT_BG_UPLOAD_DIR).resolve(bgPicture).normalize();
+            if (!Files.exists(filePath)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            }
+
+            Resource resource = new UrlResource(filePath.toUri());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, Files.probeContentType(filePath))
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
     }
 
+    @GetMapping("{id}/images/map")
+    public ResponseEntity<Resource> getHuntMapImage(@PathVariable Long id) {
+        try {
+            String mapPic = huntService.getMapPic(id);
+            if (!StringUtils.isNotBlank(mapPic)) {
+                return ResponseEntity.ok(null);
+            }
+
+            Path filePath = Paths.get(HUNT_MAP_UPLOAD_DIR).resolve(mapPic).normalize();
+            if (!Files.exists(filePath)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            }
+
+            Resource resource = new UrlResource(filePath.toUri());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, Files.probeContentType(filePath))
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    @PostMapping("{huntId}/comments")
+    public ResponseEntity<CommentResponse> addCommentToHunt(
+            @PathVariable Long huntId,
+            @Valid @RequestBody CommentRequest commentRequest
+    ) {
+        var res = huntService.addComment(huntId, commentRequest);
+
+        return ResponseEntity.ok(
+                res
+        );
+    }
+
+    @GetMapping("{huntId}/comments")
+    public ResponseEntity<List<CommentResponse>> getAllComments(@PathVariable Long huntId) {
+        return ResponseEntity.ok(
+                huntService.getAllComments(huntId)
+        );
+    }
+
+    @PutMapping("{huntId}/setDate")
+    public ResponseEntity<Void> updateHunt(
+            @PathVariable Long huntId,
+            @Valid @RequestBody HuntUpdateRequest huntUpdateRequest
+    ) {
+        huntService.updateHunt(huntId, huntUpdateRequest);
+
+        return ResponseEntity.ok(
+                null
+        );
+    }
+
+    @GetMapping("{huntId}/statistics")
+    public ResponseEntity<HuntStatistics> getHuntStatistics(@PathVariable Long huntId) {
+        return ResponseEntity.ok(
+                huntService.getHuntStatistics(huntId)
+        );
+    }
+
+    @PostMapping("{huntId}/join")
+    public ResponseEntity<Void> joinHunt(@PathVariable Long huntId) {
+        huntService.joinHunt(huntId);
+        return ResponseEntity.ok(null);
+    }
+
+    @GetMapping("{huntId}/challenges/info")
+    public ResponseEntity<ChallengeInfo> getChallengesInfo(
+            @PathVariable Long huntId
+    ) {
+        return ResponseEntity.ok(challengeService.getChallengesInfo(huntId));
+    }
+
+    @GetMapping("challenges/{id}/img")
+    public ResponseEntity<Resource> getChallengeImage(@PathVariable Long id) {
+        try {
+            String pic = challengeService.getImgPiece(id);
+            if (!StringUtils.isNotBlank(pic)) {
+                return ResponseEntity.ok(null);
+            }
+
+            Path filePath = Paths.get(CHALLENGE_PIECES_UPLOAD_DIR).resolve(pic).normalize();
+            if (!Files.exists(filePath)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            }
+
+            Resource resource = new UrlResource(filePath.toUri());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, Files.probeContentType(filePath))
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    @PostMapping("{challengeId}/game-on")
+    public ResponseEntity<Void> addScoreToGameChallenge(
+            @PathVariable Long challengeId
+    ) {
+        challengeService.addScoreToGameChallenge(challengeId);
+
+        return ResponseEntity.ok(null);
+    }
 }

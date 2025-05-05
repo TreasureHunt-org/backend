@@ -9,6 +9,7 @@ public record DraftHuntDTO(
         String title,
         String description,
         Long organizerId,
+        Long reviewerId,
         Instant startDate,
         Instant endDate,
         HuntStatus huntStatus,

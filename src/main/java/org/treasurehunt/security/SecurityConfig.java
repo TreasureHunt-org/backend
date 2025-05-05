@@ -70,7 +70,8 @@ public class SecurityConfig {
         final var authWhitelist = new String[]{
                 "/api-docs/**", "/auth/refresh-token",
                 "/auth/signin", "/auth/signup", "/swagger-ui/**",
-                "/doc/**", "/index.html", "/error/**", "/users/**"};
+                "/doc/**", "/index.html", "/error/**", "/users/**",
+                "/hunts/*/images/bg", "/hunts/*/images/map"};
 
 
         http.
@@ -113,7 +114,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("*"));
         configuration.setAllowedMethods(List.of("*"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type","*"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
