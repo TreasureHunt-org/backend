@@ -21,10 +21,13 @@ import org.treasurehunt.hunt.api.*;
 import org.treasurehunt.hunt.mapper.ChallengeMapperImpl;
 import org.treasurehunt.hunt.mapper.HuntMapper;
 import org.treasurehunt.hunt.repository.*;
+import org.treasurehunt.hunt.repository.entity.Challenge;
 import org.treasurehunt.hunt.repository.entity.Comment;
 import org.treasurehunt.hunt.repository.entity.Hunt;
 import org.treasurehunt.hunt.repository.entity.Location;
 import org.treasurehunt.security.UserDetailsDTO;
+import org.treasurehunt.submissions.repo.Submission;
+import org.treasurehunt.submissions.repo.SubmissionRepo;
 import org.treasurehunt.user.repository.UserRepository;
 import org.treasurehunt.user.repository.entity.User;
 import org.treasurehunt.user.service.UserService;
@@ -50,6 +53,7 @@ public class HuntService {
     private final UserRepository userRepository;
     private final CommentRepository commentRepository;
     private final ChallengeRepository challengeRepository;
+    private final SubmissionRepo submissionRepo;
 
     @Transactional
     public Hunt draftHunt(
@@ -248,5 +252,95 @@ public class HuntService {
         userRepository.save(user);
     }
 
+    public ActiveHuntsResponse getActiveHunts() {
+        // Get the current user
+        Long userId = AuthUtil.getUserFromSecurityContext()
+                .orElseThrow(() -> new EntityNotFoundException("No user found"))
+                .getId();
 
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(userId, User.class));
+
+        // Get the hunt associated with the user
+        Hunt hunt = huntRepository.findHuntByUser_Id(userId);
+        if (hunt == null || hunt.getStatus() != HuntStatus.LIVE) {
+            // Return empty response if user has no active hunt
+            return new ActiveHuntsResponse(new ArrayList<>());
+        }
+
+        // Get all challenges for the hunt
+        List<Challenge> challenges = hunt.getChallenges();
+        int totalChallenges = challenges.size();
+
+        // Count completed challenges
+        int completedChallenges = 0;
+        for (Challenge challenge : challenges) {
+            List<Submission> submissions = submissionRepo.findByChallengeIdAndUserId(challenge.getId(), userId);
+            boolean solved = submissions.stream()
+                    .anyMatch(s -> s.getStatus().equals(Submission.SubmissionStatus.SUCCESS));
+            if (solved) {
+                completedChallenges++;
+            }
+        }
+
+        // Calculate progress
+        double progress = totalChallenges > 0 ? (double) completedChallenges / totalChallenges * 100 : 0;
+
+        // Convert endDate to LocalDate
+        java.time.LocalDate dueDate = hunt.getEndDate() != null 
+            ? hunt.getEndDate().atZone(java.time.ZoneId.systemDefault()).toLocalDate() 
+            : null;
+
+        // Create active hunt item
+        ActiveHuntsResponse.ActiveHuntItem item = ActiveHuntsResponse.ActiveHuntItem.builder()
+                .id(hunt.getId().toString())
+                .title(hunt.getTitle())
+                .progress(progress)
+                .completedChallenges(completedChallenges)
+                .totalChallenges(totalChallenges)
+                .dueDate(dueDate)
+                .build();
+
+        // Create and return response
+        return new ActiveHuntsResponse(List.of(item));
+    }
+
+    public CompletedHuntsResponse getCompletedHunts() {
+        // Get the current user
+        Long userId = AuthUtil.getUserFromSecurityContext()
+                .orElseThrow(() -> new EntityNotFoundException("No user found"))
+                .getId();
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(userId, User.class));
+
+        // Get the hunt associated with the user
+        Hunt hunt = huntRepository.findHuntByUser_Id(userId);
+        if (hunt == null || hunt.getStatus() != HuntStatus.FINISHED) {
+            // Return empty response if user has no completed hunt
+            return new CompletedHuntsResponse(new ArrayList<>());
+        }
+
+        // Convert endDate to LocalDate (as completedDate)
+        java.time.LocalDate completedDate = hunt.getEndDate() != null 
+            ? hunt.getEndDate().atZone(java.time.ZoneId.systemDefault()).toLocalDate() 
+            : null;
+
+        // For this implementation, we'll use the user's score and a placeholder rank
+        // In a real implementation, you would calculate the rank based on scores of all users
+        int score = user.getScore() != null ? user.getScore() : 0;
+        int rank = 1; // Placeholder, would need to be calculated based on all users' scores
+
+        // Create completed hunt item
+        CompletedHuntsResponse.CompletedHuntItem item = CompletedHuntsResponse.CompletedHuntItem.builder()
+                .id(hunt.getId().toString())
+                .title(hunt.getTitle())
+                .completedDate(completedDate)
+                .score(score)
+                .rank(rank)
+                .build();
+
+        // Create and return response
+        return new CompletedHuntsResponse(List.of(item));
+    }
 }

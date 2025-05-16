@@ -480,11 +480,9 @@ public class HuntController {
         }
     }
 
-    @PostMapping("{challengeId}/game-on")
-    public ResponseEntity<Void> addScoreToGameChallenge(
-            @PathVariable Long challengeId
-    ) {
-        challengeService.addScoreToGameChallenge(challengeId);
+    @PostMapping("game-on")
+    public ResponseEntity<Void> addScoreToGameChallenge() {
+        challengeService.addScoreToGameChallenge();
 
         return ResponseEntity.ok(null);
     }

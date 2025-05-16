@@ -169,6 +169,11 @@ public class UserController {
         );
     }
 
+    @GetMapping("/score")
+    public ResponseEntity<UserScoreResponse> getUserScore() {
+        return ResponseEntity.ok(userService.getUserScore());
+    }
+
     private Optional<UserDetailsDTO> getUserFromSecurityContext() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         return auth.getPrincipal() instanceof UserDetailsDTO user ? Optional.of(user) : Optional.empty();

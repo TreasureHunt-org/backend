@@ -334,9 +334,7 @@ public class ChallengeService {
     }
 
     @Transactional
-    public void addScoreToGameChallenge(Long challengeId) {
-        Challenge challenge = challengeRepository.findById(challengeId)
-                .orElseThrow(() -> new EntityNotFoundException("No such challenge"));
+    public void addScoreToGameChallenge() {
 
         UserDetailsDTO userDTO = AuthUtil.getUserFromSecurityContext()
                 .orElseThrow(() -> new EntityNotFoundException("No user found"));
@@ -344,8 +342,20 @@ public class ChallengeService {
         User user = userRepository.findById(userDTO.getId())
                 .orElseThrow(() -> new EntityNotFoundException("No user found"));
 
+        Hunt hunt = huntRepository.findHuntByUser_Id(user.getId());
+        Challenge game = null;
+        for (Challenge challenge : hunt.getChallenges()) {
+            if(challenge.getChallengeType().equals(ChallengeType.GAME)){
+                game = challenge;
+                break;
+            }
+        }
+        if(game == null){
+            throw new IllegalStateException("idk");
+        }
+
         List<Submission> submissions = submissionRepo.findByChallengeIdAndUserId(
-                challenge.getId(), user.getId()
+                game.getId(), user.getId()
         );
 
         boolean wonBefore = submissions.stream()
@@ -355,14 +365,14 @@ public class ChallengeService {
             return;
         }
 
-        int challengeScore = challenge.getPoints();
+        int challengeScore = game.getPoints();
 
         user.setScore(user.getScore() + challengeScore);
 
         userRepository.save(user);
 
         Submission submission = new Submission();
-        submission.setChallengeId(challengeId);
+        submission.setChallengeId(game.getId());
         submission.setTime(Instant.now());
         submission.setUserId(user.getId());
         submission.setStatus(Submission.SubmissionStatus.SUCCESS);

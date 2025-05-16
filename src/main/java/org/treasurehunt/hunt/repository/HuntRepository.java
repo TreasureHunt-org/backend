@@ -23,4 +23,9 @@ public interface HuntRepository extends JpaRepository<Hunt, Long>, JpaSpecificat
             """)
     Long countParticipants(Long huntId);
 
+    @Query("""
+            SELECT h from Hunt h where h.id = (SELECT u.hunt.id FROM User u where u.id = :id)
+            """)
+    Hunt findHuntByUser_Id(Long id);
+
 }
