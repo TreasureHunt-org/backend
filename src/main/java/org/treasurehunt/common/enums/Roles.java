@@ -1,8 +1,8 @@
 package org.treasurehunt.common.enums;
 
 public enum Roles {
-    ADMIN,
     HUNTER,
+    ADMIN,
     ORGANIZER,
     REVIEWER
 }

@@ -2,6 +2,10 @@ package org.treasurehunt.user.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +24,7 @@ import org.treasurehunt.hunt.repository.entity.Challenge;
 import org.treasurehunt.security.jwt.JwtService;
 import org.treasurehunt.submissions.repo.Submission;
 import org.treasurehunt.submissions.repo.SubmissionRepo;
+import org.treasurehunt.user.api.LeaderboardResponse;
 import org.treasurehunt.user.mapper.UserMapper;
 import org.treasurehunt.user.repository.UserCriteriaRepository;
 import org.treasurehunt.user.repository.UserSearchCriteria;
@@ -37,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.Comparator;
+import java.util.stream.Collectors;
 
 import static org.treasurehunt.common.constants.UploadingConstants.ALLOWED_TYPES;
 import static org.treasurehunt.common.constants.UploadingConstants.USER_UPLOAD_DIR;
@@ -91,6 +97,38 @@ public class UserService {
         roles.add(role);
         user.setRoles(roles);
 
+        userRepository.save(user);
+
+        return userMapper.toUserAuthResponse(user);
+    }
+
+    /**
+     * Creates a user with specified roles. Only accessible by admin users.
+     *
+     * @param request The request containing user details and roles
+     * @return UserAuthResponse containing the created user's details
+     */
+    @Transactional
+    public UserAuthResponse createUserWithRoles(CreateUserRequest request, Set<Roles> roles) {
+        if (userRepository.findByEmailOrUsernameIgnoreCase(request.email().trim(), request.username().trim()).isPresent()) {
+            throw new EntityAlreadyExistsException("email", request.email(), User.class);
+        }
+        User requestUser = userMapper.toUser(request);
+        User user = userRepository.save(requestUser);
+
+        Set<Role> userRoles = roles.stream()
+                .map(role -> {
+                    Role newRole = new Role();
+                    newRole.setUser(user);
+                    RoleId roleId = new RoleId();
+                    roleId.setRoleName(role.name());
+                    roleId.setUserId(user.getId());
+                    newRole.setId(roleId);
+                    return newRole;
+                })
+                .collect(Collectors.toSet());
+
+        user.setRoles(userRoles);
         userRepository.save(user);
 
         return userMapper.toUserAuthResponse(user);
@@ -248,5 +286,60 @@ public class UserService {
         }
 
         return totalPoints;
+    }
+
+    /**
+     * Get the leaderboard with pagination.
+     * 
+     * @param pageDTO The pagination parameters
+     * @return A paginated response containing users sorted by score
+     */
+    public LeaderboardResponse getLeaderboard(PageDTO pageDTO) {
+        // Get all users
+        List<User> allUsers = userRepository.findAll();
+
+        // Sort users by score in descending order
+        allUsers.sort(Comparator.comparing(user -> {
+            Integer score = user.getScore();
+            return score != null ? -score : 0; // Negative for descending order
+        }));
+
+        // Apply pagination
+        int page = pageDTO.getPage();
+        int size = pageDTO.getPageSize();
+        int fromIndex = page * size;
+        int toIndex = Math.min(fromIndex + size, allUsers.size());
+
+        // Handle case where fromIndex is out of bounds
+        if (fromIndex >= allUsers.size()) {
+            return new LeaderboardResponse(
+                List.of(),
+                (int) Math.ceil((double) allUsers.size() / size),
+                allUsers.size(),
+                size,
+                page
+            );
+        }
+
+        List<User> pagedUsers = allUsers.subList(fromIndex, toIndex);
+
+        // Map to LeaderboardUser objects
+        List<LeaderboardResponse.LeaderboardUser> leaderboardUsers = pagedUsers.stream()
+            .map(user -> LeaderboardResponse.LeaderboardUser.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .points(user.getScore() != null ? user.getScore() : 0)
+                .profileImage(user.getProfilePicture())
+                .build())
+            .toList();
+
+        // Create and return the response
+        return new LeaderboardResponse(
+            leaderboardUsers,
+            (int) Math.ceil((double) allUsers.size() / size),
+            allUsers.size(),
+            size,
+            page
+        );
     }
 }

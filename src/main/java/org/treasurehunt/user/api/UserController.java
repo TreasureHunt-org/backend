@@ -14,13 +14,16 @@ import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.treasurehunt.auth.CreateUserRequest;
 import org.treasurehunt.auth.UserAuthResponse;
 import org.treasurehunt.common.api.ApiResp;
 import org.treasurehunt.common.api.PageDTO;
@@ -30,6 +33,7 @@ import org.treasurehunt.security.UserDetailsDTO;
 import org.treasurehunt.user.mapper.UserMapper;
 import org.treasurehunt.user.service.UserService;
 import org.treasurehunt.user.repository.UserSearchCriteria;
+import jakarta.validation.Valid;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -174,8 +178,102 @@ public class UserController {
         return ResponseEntity.ok(userService.getUserScore());
     }
 
+    @Operation(
+            summary = "Get leaderboard",
+            description = "Retrieves a paginated list of users sorted by score in descending order.",
+            security = {@SecurityRequirement(name = "bearer-key")}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Leaderboard fetched successfully"),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Internal Server Error - Unexpected server issue",
+                    content = @Content(
+                            schema = @Schema(implementation = ApiResp.class),
+                            examples = @ExampleObject(
+                                    value = "{ \"success\": false, \"message\": \"Internal Server Error\", \"data\": null, \"errors\": [\"Unexpected server issue\"], \"errorCode\": 500, \"timestamp\": 1699999999999 }"
+                            )
+                    )
+            )
+    })
+    @GetMapping("/leaderboard")
+    public ResponseEntity<LeaderboardResponse> getLeaderboard(
+            @Parameter(description = "Page number (0-based)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+
+            @Parameter(description = "Page size", example = "10")
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        PageDTO pageDTO = new PageDTO(page, size, Sort.Direction.DESC, "score");
+        return ResponseEntity.ok(userService.getLeaderboard(pageDTO));
+    }
+
     private Optional<UserDetailsDTO> getUserFromSecurityContext() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         return auth.getPrincipal() instanceof UserDetailsDTO user ? Optional.of(user) : Optional.empty();
+    }
+
+    @Operation(
+            summary = "Create a user with specific roles",
+            description = "Allows administrators to create new users with specific roles. Only accessible by users with ADMIN role.",
+            security = {@SecurityRequirement(name = "bearer-key")}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "User created successfully"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Bad Request - Invalid input data",
+                    content = @Content(
+                            schema = @Schema(implementation = ApiResp.class),
+                            examples = @ExampleObject(
+                                    value = "{ \"success\": false, \"message\": \"Bad Request\", \"data\": null, \"errors\": [\"Invalid input data\"], \"errorCode\": 400, \"timestamp\": 1699999999999 }"
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden - User does not have admin privileges",
+                    content = @Content(
+                            schema = @Schema(implementation = ApiResp.class),
+                            examples = @ExampleObject(
+                                    value = "{ \"success\": false, \"message\": \"Forbidden\", \"data\": null, \"errors\": [\"Access denied\"], \"errorCode\": 403, \"timestamp\": 1699999999999 }"
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Conflict - User with the same email or username already exists",
+                    content = @Content(
+                            schema = @Schema(implementation = ApiResp.class),
+                            examples = @ExampleObject(
+                                    value = "{ \"success\": false, \"message\": \"Conflict\", \"data\": null, \"errors\": [\"User with this email already exists\"], \"errorCode\": 409, \"timestamp\": 1699999999999 }"
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Internal Server Error - Unexpected server issue",
+                    content = @Content(
+                            schema = @Schema(implementation = ApiResp.class),
+                            examples = @ExampleObject(
+                                    value = "{ \"success\": false, \"message\": \"Internal Server Error\", \"data\": null, \"errors\": [\"Unexpected server issue\"], \"errorCode\": 500, \"timestamp\": 1699999999999 }"
+                            )
+                    )
+            )
+    })
+    @PostMapping("/admin/create")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
+    public ResponseEntity<ApiResp<UserAuthResponse>> createUserWithRoles(
+            @RequestBody @Valid AdminCreateUserRequest request
+    ) {
+        UserAuthResponse userAuthResponse = userService.createUserWithRoles(
+                request.toCreateUserRequest(),
+                request.roles()
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResp.
+                        success(List.of(userAuthResponse),
+                                "User created successfully with specified roles"));
     }
 }

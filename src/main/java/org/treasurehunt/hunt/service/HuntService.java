@@ -31,6 +31,7 @@ import org.treasurehunt.submissions.repo.SubmissionRepo;
 import org.treasurehunt.user.repository.UserRepository;
 import org.treasurehunt.user.repository.entity.User;
 import org.treasurehunt.user.service.UserService;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -342,5 +343,98 @@ public class HuntService {
 
         // Create and return response
         return new CompletedHuntsResponse(List.of(item));
+    }
+
+    /**
+     * Delete a hunt by ID. Only accessible by ADMIN.
+     *
+     * @param huntId the ID of the hunt to delete
+     * @throws EntityNotFoundException if the hunt is not found
+     */
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @Transactional
+    public void deleteHunt(Long huntId) {
+        Hunt hunt = huntRepository.findById(huntId)
+                .orElseThrow(() -> new EntityNotFoundException("Hunt not found with id: " + huntId));
+
+        // Delete all challenges associated with the hunt
+        challengeRepository.deleteAll(hunt.getChallenges());
+
+        // Delete all comments associated with the hunt
+        List<Comment> comments = commentRepository.findAllByHunt_Id(huntId);
+        commentRepository.deleteAll(comments);
+
+        // Remove hunt association from participants
+        List<User> participants = userRepository.findAll().stream()
+                .filter(user -> user.getHunt() != null && user.getHunt().getId().equals(huntId))
+                .toList();
+        participants.forEach(participant -> {
+            participant.setHunt(null);
+            userRepository.save(participant);
+        });
+
+        // Delete the hunt
+        huntRepository.delete(hunt);
+    }
+
+    /**
+     * Update a hunt's status. Only accessible by ADMIN.
+     *
+     * @param huntId the ID of the hunt to update
+     * @param status the new status for the hunt
+     * @return the updated hunt
+     * @throws EntityNotFoundException if the hunt is not found
+     */
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @Transactional
+    public Hunt updateHuntStatus(Long huntId, HuntStatus status) {
+        Hunt hunt = huntRepository.findById(huntId)
+                .orElseThrow(() -> new EntityNotFoundException("Hunt not found with id: " + huntId));
+
+        hunt.setStatus(status);
+        return huntRepository.save(hunt);
+    }
+
+    /**
+     * Update a hunt's details. Only accessible by ADMIN.
+     *
+     * @param huntId the ID of the hunt to update
+     * @param updateRequest the request containing the updated hunt details
+     * @return the updated hunt
+     * @throws EntityNotFoundException if the hunt is not found
+     */
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @Transactional
+    public Hunt updateHuntDetails(Long huntId, AdminHuntUpdateRequest updateRequest) {
+        Hunt hunt = huntRepository.findById(huntId)
+                .orElseThrow(() -> new EntityNotFoundException("Hunt not found with id: " + huntId));
+
+        if (updateRequest.title() != null) {
+            hunt.setTitle(updateRequest.title());
+        }
+
+        if (updateRequest.description() != null) {
+            hunt.setDescription(updateRequest.description());
+        }
+
+        if (updateRequest.startDate() != null) {
+            hunt.setStartDate(updateRequest.startDate());
+        }
+
+        if (updateRequest.endDate() != null) {
+            hunt.setEndDate(updateRequest.endDate());
+        }
+
+        if (updateRequest.status() != null) {
+            hunt.setStatus(updateRequest.status());
+        }
+
+        if (updateRequest.reviewerId() != null) {
+            User reviewer = userRepository.findById(updateRequest.reviewerId())
+                    .orElseThrow(() -> new EntityNotFoundException("Reviewer not found with id: " + updateRequest.reviewerId()));
+            hunt.setReviewer(reviewer);
+        }
+
+        return huntRepository.save(hunt);
     }
 }

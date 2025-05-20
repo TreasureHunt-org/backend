@@ -36,6 +36,7 @@ import org.treasurehunt.hunt.service.ChallengeService;
 import org.treasurehunt.hunt.service.HuntService;
 import org.treasurehunt.hunt.repository.entity.Hunt;
 import org.treasurehunt.security.UserDetailsDTO;
+import jakarta.validation.Valid;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -485,5 +486,84 @@ public class HuntController {
         challengeService.addScoreToGameChallenge();
 
         return ResponseEntity.ok(null);
+    }
+
+    // Admin-specific endpoints
+
+    @Operation(
+            summary = "Delete a hunt",
+            description = "Deletes a hunt and all associated data. Only accessible by ADMIN."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Hunt successfully deleted"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class))),
+            @ApiResponse(responseCode = "404", description = "Hunt not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class)))
+    })
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @DeleteMapping("/admin/{id}")
+    public ResponseEntity<ApiResp<Void>> deleteHunt(
+            @Parameter(description = "Hunt ID") @PathVariable Long id
+    ) {
+        huntService.deleteHunt(id);
+        return ResponseEntity.ok(ApiResp.success(null, "Hunt successfully deleted"));
+    }
+
+    @Operation(
+            summary = "Update hunt status",
+            description = "Updates the status of a hunt. Only accessible by ADMIN."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Hunt status successfully updated"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class))),
+            @ApiResponse(responseCode = "404", description = "Hunt not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class)))
+    })
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @PutMapping("/admin/{id}/status")
+    public ResponseEntity<DraftHuntDTO> updateHuntStatus(
+            @Parameter(description = "Hunt ID") @PathVariable Long id,
+            @Parameter(description = "New hunt status") @RequestParam HuntStatus status
+    ) {
+        Hunt updatedHunt = huntService.updateHuntStatus(id, status);
+        return ResponseEntity.ok(huntMapper.toDraftDTO(updatedHunt));
+    }
+
+    @Operation(
+            summary = "Update hunt details",
+            description = "Updates the details of a hunt. Only accessible by ADMIN."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Hunt details successfully updated"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class))),
+            @ApiResponse(responseCode = "404", description = "Hunt not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResp.ErrorExample.class)))
+    })
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @PutMapping("/admin/{id}")
+    public ResponseEntity<DraftHuntDTO> updateHuntDetails(
+            @Parameter(description = "Hunt ID") @PathVariable Long id,
+            @Parameter(description = "Updated hunt details") @Valid @RequestBody AdminHuntUpdateRequest updateRequest
+    ) {
+        Hunt updatedHunt = huntService.updateHuntDetails(id, updateRequest);
+        return ResponseEntity.ok(huntMapper.toDraftDTO(updatedHunt));
     }
 }
