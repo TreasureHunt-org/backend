@@ -276,4 +276,18 @@ public class UserController {
                         success(List.of(userAuthResponse),
                                 "User created successfully with specified roles"));
     }
+
+
+    @PutMapping("{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
+    public ResponseEntity<Void> updateUser(
+            @PathVariable("id") long userId,
+            @RequestBody UpdateUserRequest updateUserRequest
+    ){
+        userService.updateUser(userId, updateUserRequest);
+
+        return ResponseEntity.ok(null);
+    }
+
+
 }

@@ -71,7 +71,8 @@ public class AuthController {
                             .map(role -> role.getId().getRoleName())
                             .toArray(String[]::new),
                     refreshToken,
-                    accessToken
+                    accessToken,
+                    ""
             );
 
             return ResponseEntity.ok()

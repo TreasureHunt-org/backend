@@ -235,10 +235,13 @@ public class ChallengeService {
             }
         }
 
+        User hunter = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
         // If not admin, check if user is the organizer of the hunt
         if (!isAdmin) {
             User huntOrganizer = hunt.getOrganizer();
-            if (!Objects.equals(huntOrganizer.getId(), userId)) {
+            if (!Objects.equals(huntOrganizer.getId(), userId) && !hunter.getHunt().getId().equals(hunt.getId())) {
                 throw new RuntimeException("You are not authorized to access this hunt's challenges");
             }
         }

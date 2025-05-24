@@ -8,11 +8,13 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.treasurehunt.auth.CreateUserRequest;
 import org.treasurehunt.auth.UserAuthResponse;
+import org.treasurehunt.hunt.repository.entity.Hunt;
 import org.treasurehunt.user.api.PublicUserProfile;
 import org.treasurehunt.user.repository.entity.Role;
 import org.treasurehunt.user.repository.entity.User;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Mapper(componentModel = "spring")
@@ -28,6 +30,7 @@ public abstract class UserMapper {
             expression = "java( passwordEncoder.encode(request.password()) )")
     public abstract User toUser(CreateUserRequest request);
 
+    @Mapping(target = "currentHunt", expression = "java(getHuntTitle(user))")
     public abstract UserAuthResponse toUserAuthResponse(User user);
 
     // Convert a list of Users to a list of UserAuthResponses
@@ -47,4 +50,9 @@ public abstract class UserMapper {
 
     public abstract PublicUserProfile toPublicUser(User user);
 
+    protected String getHuntTitle(User user){
+        if(user.getHunt() != null)
+            return user.getHunt().getTitle();
+        return "";
+    }
 }

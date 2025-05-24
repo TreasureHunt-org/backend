@@ -12,7 +12,7 @@ public record UserAuthResponse(
         @JsonProperty String email,
         @JsonProperty String[] roles,
         @JsonProperty String refreshToken,
-        @JsonProperty String accessToken
-
+        @JsonProperty String accessToken,
+        @JsonProperty String currentHunt
 ) {
 }

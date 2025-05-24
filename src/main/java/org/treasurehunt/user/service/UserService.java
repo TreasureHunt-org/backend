@@ -25,6 +25,7 @@ import org.treasurehunt.security.jwt.JwtService;
 import org.treasurehunt.submissions.repo.Submission;
 import org.treasurehunt.submissions.repo.SubmissionRepo;
 import org.treasurehunt.user.api.LeaderboardResponse;
+import org.treasurehunt.user.api.UpdateUserRequest;
 import org.treasurehunt.user.mapper.UserMapper;
 import org.treasurehunt.user.repository.UserCriteriaRepository;
 import org.treasurehunt.user.repository.UserSearchCriteria;
@@ -201,8 +202,8 @@ public class UserService {
 
     /**
      * Calculate the user's rank based on their score compared to other users.
-     * 
-     * @param userId The ID of the user
+     *
+     * @param userId    The ID of the user
      * @param userScore The score of the user
      * @return The user's rank (1 is the highest rank)
      */
@@ -250,13 +251,13 @@ public class UserService {
         int highestScore = totalScore;
 
         // Create user score data
-        org.treasurehunt.user.api.UserScoreResponse.UserScoreData scoreData = 
-            org.treasurehunt.user.api.UserScoreResponse.UserScoreData.builder()
-                .total(totalScore)
-                .rank(rank)
-                .lastEarned(lastEarned)
-                .highestScore(highestScore)
-                .build();
+        org.treasurehunt.user.api.UserScoreResponse.UserScoreData scoreData =
+                org.treasurehunt.user.api.UserScoreResponse.UserScoreData.builder()
+                        .total(totalScore)
+                        .rank(rank)
+                        .lastEarned(lastEarned)
+                        .highestScore(highestScore)
+                        .build();
 
         // Create and return response
         return new org.treasurehunt.user.api.UserScoreResponse(scoreData);
@@ -264,7 +265,7 @@ public class UserService {
 
     /**
      * Calculate the points earned by the user in the last 7 days.
-     * 
+     *
      * @param userId The ID of the user
      * @return The total points earned in the last 7 days
      */
@@ -290,7 +291,7 @@ public class UserService {
 
     /**
      * Get the leaderboard with pagination.
-     * 
+     *
      * @param pageDTO The pagination parameters
      * @return A paginated response containing users sorted by score
      */
@@ -313,11 +314,11 @@ public class UserService {
         // Handle case where fromIndex is out of bounds
         if (fromIndex >= allUsers.size()) {
             return new LeaderboardResponse(
-                List.of(),
-                (int) Math.ceil((double) allUsers.size() / size),
-                allUsers.size(),
-                size,
-                page
+                    List.of(),
+                    (int) Math.ceil((double) allUsers.size() / size),
+                    allUsers.size(),
+                    size,
+                    page
             );
         }
 
@@ -325,21 +326,61 @@ public class UserService {
 
         // Map to LeaderboardUser objects
         List<LeaderboardResponse.LeaderboardUser> leaderboardUsers = pagedUsers.stream()
-            .map(user -> LeaderboardResponse.LeaderboardUser.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .points(user.getScore() != null ? user.getScore() : 0)
-                .profileImage(user.getProfilePicture())
-                .build())
-            .toList();
+                .map(user -> LeaderboardResponse.LeaderboardUser.builder()
+                        .id(user.getId())
+                        .username(user.getUsername())
+                        .points(user.getScore() != null ? user.getScore() : 0)
+                        .profileImage(user.getProfilePicture())
+                        .build())
+                .toList();
 
         // Create and return the response
         return new LeaderboardResponse(
-            leaderboardUsers,
-            (int) Math.ceil((double) allUsers.size() / size),
-            allUsers.size(),
-            size,
-            page
+                leaderboardUsers,
+                (int) Math.ceil((double) allUsers.size() / size),
+                allUsers.size(),
+                size,
+                page
         );
+    }
+
+    public void updateUser(long userId, UpdateUserRequest updateUserRequest) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with id " + userId));
+
+        if (updateUserRequest.email() != null && !updateUserRequest.email().isEmpty()) {
+            boolean existsByEmail = userRepository.existsByEmail(updateUserRequest.email());
+            if (!existsByEmail) {
+                user.setEmail(updateUserRequest.email());
+            }
+        }
+        if (updateUserRequest.name() != null && !updateUserRequest.name().isEmpty()) {
+            boolean existsByUsername = userRepository.existsByUsername(updateUserRequest.name());
+            if (!existsByUsername) {
+                user.setUsername(updateUserRequest.name());
+            }
+        }
+
+        // Add roles if they don't exist for the user
+        if (updateUserRequest.roles() != null && updateUserRequest.roles().length > 0) {
+            Set<String> existingRoleNames = user.getRoles().stream()
+                    .map(role -> role.getId().getRoleName())
+                    .collect(Collectors.toSet());
+
+            for (Roles role : updateUserRequest.roles()) {
+                String roleName = role.name();
+                if (!existingRoleNames.contains(roleName)) {
+                    Role newRole = new Role();
+                    RoleId roleId = new RoleId();
+                    roleId.setRoleName(roleName);
+                    roleId.setUserId(userId);
+                    newRole.setId(roleId);
+                    newRole.setUser(user);
+                    user.getRoles().add(newRole);
+                }
+            }
+        }
+
+        userRepository.save(user);
     }
 }

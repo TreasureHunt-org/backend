@@ -33,4 +33,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u.profilePicture FROM User u WHERE u.id = :id")
     String getUserProfilePicById(@Param("id") Long id);
 
+    Optional<User> findByUsername(String username);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByUsername(String username);
 }
