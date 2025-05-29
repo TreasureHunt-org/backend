@@ -20,7 +20,6 @@ public record AdminHuntUpdateRequest(
         String description,
 
         @Schema(description = "Hunt start date", example = "2023-12-01T09:00:00Z")
-        @Future(message = "Start date must be in the future")
         Instant startDate,
 
         @Schema(description = "Hunt end date", example = "2023-12-15T18:00:00Z")

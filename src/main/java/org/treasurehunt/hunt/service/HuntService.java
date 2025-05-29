@@ -18,7 +18,6 @@ import org.treasurehunt.common.validation.ValidatorService;
 import org.treasurehunt.exception.BadRequestException;
 import org.treasurehunt.exception.EntityNotFoundException;
 import org.treasurehunt.hunt.api.*;
-import org.treasurehunt.hunt.mapper.ChallengeMapperImpl;
 import org.treasurehunt.hunt.mapper.HuntMapper;
 import org.treasurehunt.hunt.repository.*;
 import org.treasurehunt.hunt.repository.entity.Challenge;
@@ -37,7 +36,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static org.treasurehunt.common.constants.UploadingConstants.*;
 
@@ -392,6 +390,40 @@ public class HuntService {
                 .orElseThrow(() -> new EntityNotFoundException("Hunt not found with id: " + huntId));
 
         hunt.setStatus(status);
+        if(HuntStatus.FINISHED.equals(status)){
+            // Find all users participating in the hunt
+            List<User> participants = userRepository.findAll().stream()
+                    .filter(user -> user.getHunt() != null && user.getHunt().getId().equals(huntId))
+                    .toList();
+
+            // For each participant, calculate and update their score
+            for (User user : participants) {
+                int totalScore = 0;
+
+                // Get all challenges for the hunt
+                List<Challenge> challenges = hunt.getChallenges();
+
+                // For each challenge, check if the user has a successful submission
+                for (Challenge challenge : challenges) {
+                    List<Submission> submissions = submissionRepo.findByChallengeIdAndUserId(challenge.getId(), user.getId());
+                    boolean solved = submissions.stream()
+                            .anyMatch(s -> s.getStatus().equals(Submission.SubmissionStatus.SUCCESS));
+                    var failedSubmission = submissions.stream()
+                            .filter(s -> s.getStatus().equals(Submission.SubmissionStatus.FAIL))
+                            .count();
+
+                    // If the user has a successful submission, add points to their score
+                    if (solved) {
+                        totalScore += challenge.getPoints(); // Assigning 10 points per successful challenge
+                    }
+                    totalScore += (int) (failedSubmission * -10);
+                }
+
+                // Update the user's score
+                user.setScore(totalScore);
+                userRepository.save(user);
+            }
+        }
         return huntRepository.save(hunt);
     }
 

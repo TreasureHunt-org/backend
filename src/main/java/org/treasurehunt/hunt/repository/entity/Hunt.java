@@ -50,7 +50,6 @@ public class Hunt {
     private User winner;
 
     @Column(name = "start_date")
-    @Future
     private Instant startDate;
 
     @Column(name = "end_date")
