@@ -84,6 +84,7 @@ public class UserService {
         if (userRepository.findByEmailOrUsernameIgnoreCase(request.email().trim(), request.username().trim()).isPresent()) {
             throw new EntityAlreadyExistsException("email", request.email(), User.class);
         }
+
         User requestUser = userMapper.toUser(request);
         User user = userRepository.save(requestUser);
 
